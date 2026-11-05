@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from backend.api.schemas import IngestResponse
 from backend.api.security import require_api_key
 from backend.container import Container, get_container
+from backend.ingestion import IngestionError
 from backend.guardrails.input import validate_request_identity
 from backend.services.retrieval_service import Scope
 
@@ -32,7 +33,7 @@ async def upload_pdf(
     if not ok:
         raise HTTPException(status_code=400, detail=err)
 
-    pdf_bytes = await file.read()
+    pdf_bytes = await file.read(MAX_UPLOAD_BYTES + 1)  # never buffer more than one byte past the limit
     if len(pdf_bytes) > MAX_UPLOAD_BYTES:
         raise HTTPException(status_code=413, detail="PDF is too large (25 MB limit)")
 
@@ -42,15 +43,13 @@ async def upload_pdf(
     has_pages = any(ch["page"] is not None for ch in existing)
     if existing and existing_hash == content_hash and has_pages:
         return IngestResponse(filename=name, chunks_added=len(existing))
-    if existing:
-        c.retrieval.delete(scope)  # changed file, or an older index without page numbers: re-index
-
+    # A changed file, or an older index without page numbers, is re-indexed; index_pdf replaces the old copy.
     try:
         added = c.retrieval.index_pdf(scope, pdf_bytes, content_hash)
-    except Exception as exc:  # noqa: BLE001 - an unreadable or corrupt PDF is a client error
+    except IngestionError as exc:  # not a PDF, encrypted, or no extractable text: a client error with a clear reason
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:  # noqa: BLE001 - any other failure while reading a corrupt PDF is also a client error
         raise HTTPException(status_code=400, detail="Could not read this PDF") from exc
-    if added == 0:
-        raise HTTPException(status_code=400, detail="No extractable text found in PDF")
     return IngestResponse(filename=name, chunks_added=added)
 
 

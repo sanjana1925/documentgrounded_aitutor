@@ -9,6 +9,9 @@ DATA_DIR = Path(os.environ.get("TUTOR_DATA_DIR", PROJECT_ROOT / "data"))
 CHROMA_PATH = str(DATA_DIR / "chroma_db")
 COLLECTION_NAME = "pdf_chunks"
 
+CHUNK_SIZE = 800
+CHUNK_OVERLAP = 150
+
 QA_TOP_K = 4
 MAX_EVIDENCE_CHUNKS = 8
 

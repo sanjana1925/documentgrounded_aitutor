@@ -3,12 +3,11 @@ ChromaDB access. This is the ONLY module that touches the vector store, and ever
 requires a `Scope` (session + document). Isolation filters are built here, in Python - the LLM
 never supplies or influences them.
 """
-import io
 import uuid
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
 
-from pypdf import PdfReader
+from backend.ingestion import chunk_pdf
 
 Chunk = Dict[str, Any]  # {"chunk_index": int, "text": str, "page": Optional[int], "distance": Optional[float]}
 
@@ -119,24 +118,24 @@ class RetrievalService:
         self._collection.delete(where=self._where(scope))
 
     def index_pdf(self, scope: Scope, pdf_bytes: bytes, content_hash: str) -> int:
-        """Split page by page so every chunk keeps its page number. Returns chunks added."""
-        reader = PdfReader(io.BytesIO(pdf_bytes))
-        texts: List[str] = []
-        metadatas: List[Dict[str, Any]] = []
-        for page_number, page in enumerate(reader.pages, start=1):
-            page_text = page.extract_text() or ""
-            for piece in self._splitter.split_text(page_text) if page_text.strip() else []:
-                metadatas.append(
-                    {
-                        "source": scope.document_id,
-                        "session_id": scope.session_id,
-                        "chunk_index": len(texts),
-                        "content_hash": content_hash,
-                        "page": page_number,
-                    }
-                )
-                texts.append(piece)
-        if not texts:
-            return 0
-        self._collection.add(documents=texts, ids=[str(uuid.uuid4()) for _ in texts], metadatas=metadatas)
-        return len(texts)
+        """Chunk page by page (every chunk keeps its page number) and index, replacing any earlier copy. Raises IngestionError
+        when the PDF is unreadable, encrypted, or has no extractable text. Returns chunks added."""
+        chunks = chunk_pdf(pdf_bytes, self._splitter)  # a bad PDF raises here, before anything is touched
+        old_ids = self._collection.get(where=self._where(scope), include=[]).get("ids") or []
+        self._collection.add(
+            documents=[c.text for c in chunks],
+            ids=[str(uuid.uuid4()) for _ in chunks],
+            metadatas=[
+                {
+                    "source": scope.document_id,
+                    "session_id": scope.session_id,
+                    "chunk_index": c.index,
+                    "content_hash": content_hash,
+                    "page": c.page,
+                }
+                for c in chunks
+            ],
+        )
+        if old_ids:  # replace only after the new copy is stored, so a failed add keeps the old one
+            self._collection.delete(ids=old_ids)
+        return len(chunks)
