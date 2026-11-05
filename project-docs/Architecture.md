@@ -50,7 +50,7 @@ guardrails and observability are used everywhere and never raise
 | Services | backend/services/ | Deterministic workers with no agent logic |
 | Guardrails | backend/guardrails/ | Input, retrieval, and output checks (pure functions) |
 | Evaluation | backend/evaluation/, services/evaluation_service.py | Dataset verification, metrics, experiments |
-| Domain rules | backend/domain/quiz_engine.py, backend/domain/planner.py | Phase progression, accuracy, weak topics, base study plan |
+| Domain rules | backend/domain/quiz_engine.py | Phase progression, accuracy, weak topics |
 
 Rules:
 
@@ -82,7 +82,6 @@ START → supervisor_agent
    retrieve   → retrieval_agent → evidence_evaluator → tutor_agent → critic_agent → output_guardrail → END
    summarize  → guide_agent → END
    quiz       → quiz_agent → END
-   plan       → study_planner_agent → END
    other      → respond_other → END
 
 Loop-backs:  evaluator → retrieval_agent (retrieve again)
@@ -95,7 +94,7 @@ ROUTING RULES (all in graph/workflow.py, pure Python)
 | After | Condition | Next |
 |---|---|---|
 | supervisor | stop_reason or time expired | safe_fallback |
-| supervisor | next_action retrieve, summarize, quiz, plan, other | retrieval_agent, guide_agent, quiz_agent, study_planner_agent, respond_other |
+| supervisor | next_action retrieve, summarize, quiz, other | retrieval_agent, guide_agent, quiz_agent, respond_other |
 | retrieval_agent | retrieval exhausted | tutor if relevant and coverage is 0.6 or more, else fallback |
 | retrieval_agent | otherwise | evidence_evaluator |
 | evidence_evaluator | use_evidence | tutor_agent |
@@ -146,7 +145,6 @@ GRAPH STATE (graph/state.py)
 | Tutor | agents/tutor.py | tutor_agent.write | TutorOutput | Must cite at least one retrieved chunk, invalid means revision |
 | Critic | agents/critic.py | critic_agent.review | CriticEvaluation | Final finish, revise, retrieve, or fallback is decided by CriticAgent.decide |
 | Quiz Agent | agents/quiz.py | quiz_agent.generate_question | QuizQuestion | Grading, phase, duplicates, schema, quote grounding, 3 attempts, fallback |
-| Study Planner | agents/planner.py | study_planner_agent.propose | StudyPlanProposal | Numbers from Python, proposal validated against real stats, cached by learner-data signature, no LLM call when no topic has 2 answers |
 | Guide Agent | agents/guide.py | guide_agent.summarize, map, reduce | text | Single pass vs parallel map-reduce, length validation, retry once |
 | Memory | agents/memory.py | conversation_memory.summarize | text | Background, at most 1 call, discards injection-like summaries |
 
@@ -166,7 +164,6 @@ ToolRegistry.run(name, ctx, raw_args) does: allow-list check, argument validatio
 | search_similar_chunks | chunk_index, top_k | Retrieval Agent |
 | get_neighbor_chunks | chunk_index, window | Retrieval Agent |
 | search_by_metadata | page | Retrieval Agent |
-| get_learning_history, get_topic_performance | none, topic | Study Planner |
 | get_quiz_history, sample_document_excerpts | limit, n | Quiz Agent |
 
 ---
@@ -205,7 +202,7 @@ system_evaluation, results, arms (baseline_rag, agentic_rag), comparison, datase
 | POST /upload | multipart file and session_id, PDF up to 25 MB, page-aware chunking, idempotent by hash |
 | DELETE /documents/{filename}?session_id= | Removes chunks, learner state, and chat |
 | POST /agent | See section 4. Response adds agent_trace {events, budget, stop_reason} |
-| GET /dashboard, GET /planner, POST /quiz/reset | Learner data. The planner runs the Planner Agent with a deterministic fallback |
+| GET /dashboard, POST /quiz/reset | Learner data |
 | GET /evaluation | Requires the X-Benchmark-Password header. Returns the latest report or {"status":"no_data"}. 401 wrong password, 403 when BENCHMARK_PASSWORD is not set |
 | GET /chat/history?session_id=&filename= | Stored messages, sources, title, summary |
 
@@ -224,7 +221,6 @@ The quiz reply markdown format is parsed by the frontend (lib/parseQuiz.js) and 
 | Evidence | Evaluator and route_after_evidence | Sufficiency, coverage 0.6 or more when out of attempts, standard refusal |
 | Output | Critic and guardrails/output.py | Grounded, relevant, complete, non-empty, up to 8000 characters, no instruction leakage, cited chunks were retrieved |
 | Quiz | quiz_service, guardrails/output.py | Schema, 4 distinct options, index range, difficulty equals phase, duplicates, verbatim source quote |
-| Planner | planner_service | Topics, priorities, minutes 5 to 60, numbers within recorded data |
 | Memory | agents/memory.py | Summary rejected if it trips the input guardrail |
 | Benchmark | api/security.py | Constant-time password check on GET /evaluation |
 
@@ -233,7 +229,7 @@ The quiz reply markdown format is parsed by the frontend (lib/parseQuiz.js) and 
 11. OBSERVABILITY (LangSmith)
 
 * Root run agent_request, then agent_workflow, then nodes named after agents, then <agent>.<step> LLM runs and named tool runs. Routing functions appear as route_after_* runs.
-* Tags: ai-tutor-guide, workflow:{qa, guide-mode, quiz, study-plan, other}, intent:*, rag, retrieval, revision, quiz, study-planner, memory, fallback, error, budget-exceeded, llm-error, critic-unavailable.
+* Tags: ai-tutor-guide, workflow:{qa, guide-mode, quiz, other}, intent:*, rag, retrieval, revision, quiz, memory, fallback, error, budget-exceeded, llm-error, critic-unavailable.
 * Metadata: hashed session_id, document_id, workflow_type, intent, decision_source, retrieval_attempt, revision_attempt, evidence_coverage, evidence_action, critic_action, quiz_phase, difficulty, stop_reason. Sensitive-looking keys are stripped and values truncated to 200 characters.
 * configure_tracing() maps legacy LANGCHAIN_* names, defaults the project to ai-tutor-guide, and disables tracing with a warning if no key is set. TUTOR_DISABLE_TRACING=1 forces it off (tests).
 * The request root is an explicit @traceable whose handle is stored in a ContextVar, so the Supervisor can add intent and workflow tags after deciding.

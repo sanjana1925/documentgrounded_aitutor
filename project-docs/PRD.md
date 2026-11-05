@@ -14,7 +14,7 @@ AI Tutor Guide lets a learner upload a study PDF and then:
 * ask questions answered only from that document
 * get summaries, key points, simple explanations, and glossaries
 * take an adaptive quiz that moves from Simple to Medium to High
-* see a dashboard and a personal study plan built from real quiz results
+* see a dashboard built from real quiz results
 
 The difference is trust. Answers are grounded and cited, refusals are honest, quiz scoring is exact, limits are enforced, and every decision can be inspected in LangSmith.
 
@@ -40,7 +40,7 @@ Goals
 
 1. Grounded answers: every document answer is supported by retrieved passages, cites them, and is reviewed by an independent critic. Unsupported questions get a standard refusal.
 2. Adaptive practice: 15-question Simple phase (70% to advance), then Medium (checked every 5, 70%), then High. Weak-topic targeting and no repeated questions.
-3. Honest analytics: the dashboard and study plan use only recorded performance. The AI may not invent numbers.
+3. Honest analytics: the dashboard uses only recorded performance. The AI may not invent numbers.
 4. Bounded and safe: 12 model calls, 6 tool calls, 3 searches, 2 revisions, 45 seconds per request. Session and document isolation. Input, evidence, and output guardrails.
 5. Explainable and measurable: LangSmith traces, a verified golden dataset, and baseline vs agentic evaluation where unrun metrics read "Not evaluated yet".
 6. Cheap context: the model sees the last 6 messages plus a rolling summary, never the full history.
@@ -88,12 +88,11 @@ Non-goals (this release)
 * I cannot peek at answers. Criteria: the correct index and explanation never reach the browser before I answer.
 * Reloading is safe. Criteria: a non-answer message re-shows the pending question without grading it.
 
-5.4 Dashboard, evaluation, and study plan
+5.4 Dashboard and evaluation
 
 * The Dashboard shows raw numbers: accuracy, per-phase accuracy, and a topic table with status.
 * The Evaluation page shows which topics are at risk (below 60%, at least 2 answers) and how far below the threshold. It does not repeat Dashboard numbers.
 * The System Benchmark on the Evaluation page is behind a password checked on the server.
-* The Study Planner gives a prioritised plan. Criteria: priorities come from recorded accuracy. The agent may add activity, minutes (5 to 60), and wording only. Anything invented is rejected and the calculated plan is used.
 
 5.5 Trust, safety, and operations
 
@@ -111,11 +110,11 @@ Non-goals (this release)
 
 | Area | Included |
 |---|---|
-| Intents | qa, summary, key_points, eli5, glossary, quiz, study_plan, other |
-| Agents | Supervisor, Retrieval Agent, Evidence Evaluator, Tutor, Critic, Quiz Agent, Study Planner Agent, Guide Agent, plus a conversation memory step |
+| Intents | qa, summary, key_points, eli5, glossary, quiz, other |
+| Agents | Supervisor, Retrieval Agent, Evidence Evaluator, Tutor, Critic, Quiz Agent, Guide Agent, plus a conversation memory step |
 | Storage | ChromaDB (chunks), SQLite (chat), JSON files (quiz progress), LangSmith (traces) |
-| API | /, /upload, /documents/{filename}, /agent, /dashboard, /planner, /evaluation, /quiz/reset, /chat/history |
-| UI | Dashboard, AI Tutor, Study Planner, Adaptive Quiz, Evaluation (React and Tailwind) |
+| API | /, /upload, /documents/{filename}, /agent, /dashboard, /evaluation, /quiz/reset, /chat/history |
+| UI | Dashboard, AI Tutor, Adaptive Quiz, Evaluation (React and Tailwind) |
 
 ---
 
@@ -180,12 +179,12 @@ Reading: the agentic design gave closer, better-grounded answers and rescued one
 | Milestone | Status |
 |---|---|
 | React frontend on the design system | Done |
-| Agentic backend (supervisor, retrieval loop, critic, quiz, planner, guide) | Done |
+| Agentic backend (supervisor, retrieval loop, critic, quiz, guide) | Done |
 | Guardrails, budgets, isolation | Done |
 | Chat history and rolling summary (SQLite) | Done |
 | LangSmith tracing | Done |
 | Verified golden set and baseline vs agentic evaluation | Done (n=10) |
-| Markdown rendering in chat and study plan | Done |
+| Markdown rendering in chat | Done |
 | Password-protected System Benchmark | Done |
 | LangSmith experiments, clean re-run | Partial: baseline done, agentic pending |
 | Full-app audit, authentication, larger eval set, evaluator tuning | Backlog (see Tasks.md) |
@@ -198,4 +197,3 @@ Reading: the agentic design gave closer, better-grounded answers and rescued one
 2. Is about 10 s typical latency acceptable, or should the retrieval loop be shortened?
 3. When should accounts be introduced, and should quiz records move into the database first?
 4. Which independent judge model should replace same-family judging?
-5. Should the Study Planner stay a separate page, or become a Next Steps section on the Dashboard?

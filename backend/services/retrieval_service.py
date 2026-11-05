@@ -59,6 +59,25 @@ class RetrievalService:
         content_hash = metas[0].get("content_hash")
         return chunks, content_hash
 
+    def find_by_hash(self, session_id: str, content_hash: str) -> Optional[str]:
+        """Name of a document in this session whose file content is identical, else None."""
+        data = self._collection.get(
+            where={"$and": [{"session_id": session_id}, {"content_hash": content_hash}]}, include=["metadatas"], limit=1
+        )
+        metas = data.get("metadatas") or []
+        return metas[0]["source"] if metas else None
+
+    def list_documents(self, session_id: str) -> List[Dict[str, Any]]:
+        """Every indexed document in this session (the browser reconciles its own list against this)."""
+        metas = self._collection.get(where={"session_id": session_id}, include=["metadatas"]).get("metadatas") or []
+        docs: Dict[str, Dict[str, Any]] = {}
+        for m in metas:
+            d = docs.setdefault(m["source"], {"filename": m["source"], "num_chunks": 0, "num_pages": None})
+            d["num_chunks"] += 1
+            if m.get("page") is not None:
+                d["num_pages"] = max(d["num_pages"] or 0, int(m["page"]))
+        return sorted(docs.values(), key=lambda d: d["filename"].lower())
+
     def get_texts(self, scope: Scope) -> List[str]:
         chunks, _ = self.get_records(scope)
         return [c["text"] for c in chunks]

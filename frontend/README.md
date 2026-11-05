@@ -25,7 +25,7 @@ The dev server runs at `http://localhost:5173` and calls the API at `http://loca
 ## Structure
 
 - `src/lib/api.js` — typed fetch wrappers for every backend endpoint (`/upload`, `/agent`,
-  `/dashboard`, `/planner`, `/evaluation`, `/quiz/reset`, document delete).
+  `/dashboard`, `/evaluation`, `/quiz/reset`, document delete).
 - `src/lib/parseQuiz.js` — frontend-only parsing of the quiz endpoint's markdown `reply`
   field into structured feedback (correct/incorrect, explanation, phase-transition banner).
   The question itself comes from the already-structured `quiz_details.question_dict`.
@@ -33,11 +33,10 @@ The dev server runs at `http://localhost:5173` and calls the API at `http://loca
   (mirrors what the old Streamlit app kept in `chat_history_*.json`).
 - `src/components/` — design-system primitives (buttons, sticker cards, badges, decorative
   shapes, nav, chat bubbles, progress bars).
-- `src/pages/` — the five views: Dashboard, AI Tutor, Adaptive Quiz, Study Planner, Evaluation.
+- `src/pages/` — the four views: Dashboard, AI Tutor, Adaptive Quiz, Evaluation.
 
 ## Notes on data fidelity
 
 Every number shown is read directly from the backend's existing responses. Where the design
 spec asked for a metric the API doesn't track (e.g. "Study Time" on the dashboard, or a
-"Quiz" evaluation group), it was swapped for a real field instead of a fabricated one —
-per the app's own "never fabricate stats" rule (see `planner.py`).
+"Quiz" evaluation group), it was swapped for a real field instead of a fabricated one.

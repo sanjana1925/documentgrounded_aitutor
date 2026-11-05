@@ -30,7 +30,6 @@ Related: [PRD](PRD.md) · [Architecture](Architecture.md) · [Rules](Rules.md) �
 | P1-5 | Latency work: skip the critic when evidence coverage is high and the draft cites correctly | ⬜ | Measure quality impact first |
 | P1-6 | Consider a paid Gemini tier or a request queue | ⬜ | The free tier of 15 requests per minute drives latency and evaluation time |
 | P1-7 | Move quiz progress into SQLite | ⬜ | Keep backend/domain/quiz_engine.py rules, migrate storage only, add a migration for legacy JSON |
-| P1-8 | Decide whether the Study Planner stays a page | ⬜ | Alternative: fold it into the Dashboard as a Next Steps section |
 
 ---
 
@@ -45,7 +44,6 @@ Related: [PRD](PRD.md) · [Architecture](Architecture.md) · [Rules](Rules.md) �
 | F-5 | Show page numbers on source pills for new uploads | ⬜ | Chunk pages are in stored sources |
 | F-6 | Frontend tests (components and the quiz parser) | ⬜ | None yet |
 | F-8 | Set a different page title per route | ✅ | Every route shows "AI Tutor Guide" |
-| F-9 | Study Planner with no quiz data shows an Initial Assessment card marked HIGH PRIORITY | ✅ | Use a "Start here" label without a priority badge |
 | F-10 | Show elapsed time, a "taking longer" note, and a Retry button while the tutor is thinking | ✅ | A failing request can leave "Thinking..." for about 30 seconds |
 | F-11 | Let learners open a source pill to read the excerpt | ✅ | Pills only say Source 1, Source 2 |
 | F-12 | Round benchmark values (Avg Latency shows 10.115) and enlarge the mobile Close navigation button | ✅ | |
@@ -86,23 +84,21 @@ Frontend
 * ✅ React, Vite, and Tailwind app on the Playful Geometric design system (5 pages, shell, components, empty states, accessibility, reduced motion)
 * ✅ Evaluation page reworked to learner risk analysis, and no longer repeats Dashboard numbers
 * ✅ Dashboard trimmed to raw numbers (Weak and Strong topic chips removed) and retitled "Welcome Aboard to Your Learning Forum"
-* ✅ Page headings removed from Study Planner and Evaluation, and the sidebar footer line removed
-* ✅ Markdown rendering in chat and the study plan summary (bold, italic, nested lists) with react-markdown, no raw HTML
+* ✅ Markdown rendering in chat (bold, italic, nested lists) with react-markdown, no raw HTML
 * ✅ System Benchmark unlocked by a server-checked password
 * ✅ Eyebrow labels, circles, and triangles removed. Streamlit UI removed
 
 Backend architecture
 
 * ✅ Audit and redesign into backend/ (api, agents, tools, graph, services, guardrails, evaluation, observability), with the app.py shim
-* ✅ Supervisor, Retrieval Agent and Evidence Evaluator, Tutor, Critic, Quiz Agent, Study Planner Agent, Guide Agent
+* ✅ Supervisor, Retrieval Agent and Evidence Evaluator, Tutor, Critic, Quiz Agent, Guide Agent
 * ✅ LangGraph workflow with bounded loops and a per-request Budget (12, 6, 3, 2, 45 s)
 * ✅ Typed, allow-listed, traced tool layer with isolation in one place
-* ✅ Guardrails: identity, input, evidence, output, quiz, planner
+* ✅ Guardrails: identity, input, evidence, output, quiz
 * ✅ Chat history in SQLite with a recent window and a rolling summary
 * ✅ Learner state per session and document. Legacy files still read
 * ✅ Quiz: no answer leak, duplicate and difficulty checks, quote grounding, reload-safe
 * ✅ Page-aware PDF ingestion for new uploads
-* ✅ Planner makes no LLM call when no topic has 2 answers
 * ✅ GET /evaluation protected by BENCHMARK_PASSWORD
 
 Observability and evaluation
@@ -117,7 +113,6 @@ Quality, docs, hygiene
 
 * ✅ Folder tidy-up: runtime data in data/, quiz and plan rules in backend/domain/, project documents in project-docs/, run scripts in scripts/, root guardrails.py shim removed
 * ✅ Chat page: restores from the server history, shows a "taking longer" note after 15 s, has a Retry button and a 100 s timeout, and source pills open the excerpt (server history now includes excerpt text)
-* ✅ Page titles per route, Study Planner "Start here" label, benchmark "Refused" badge and rounded latency
 * ✅ Fixed: follow-up chat questions failed with a 422 error after any reply that had sources (frontend now sends only role and content, backend ignores extra fields, errors show readable text)
 * ✅ 214 offline tests
 * ✅ Plain-language docs (docs/01 to 12), README, and this document set, all rewritten in a plain readable format

@@ -43,6 +43,11 @@ async def upload_pdf(
     has_pages = any(ch["page"] is not None for ch in existing)
     if existing and existing_hash == content_hash and has_pages:
         return IngestResponse(filename=name, chunks_added=len(existing))
+    # The same file under another name is the same document: point the browser at the existing copy.
+    duplicate = c.retrieval.find_by_hash(session_id, content_hash)
+    if duplicate and duplicate != name:
+        return IngestResponse(filename=duplicate, chunks_added=c.retrieval.count(Scope(session_id, duplicate)))
+
     # A changed file, or an older index without page numbers, is re-indexed; index_pdf replaces the old copy.
     try:
         added = c.retrieval.index_pdf(scope, pdf_bytes, content_hash)
@@ -50,7 +55,19 @@ async def upload_pdf(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:  # noqa: BLE001 - any other failure while reading a corrupt PDF is also a client error
         raise HTTPException(status_code=400, detail="Could not read this PDF") from exc
+    if existing and existing_hash != content_hash:
+        # New content under an old name: quiz progress and chat citations about the old text would be stale.
+        c.learner.reset(scope)
+        c.chat.delete_for_document(session_id, name)
     return IngestResponse(filename=name, chunks_added=added)
+
+
+@router.get("/documents")
+def list_documents(session_id: str, _: None = Depends(require_api_key), c: Container = Depends(get_container)):
+    ok, err = validate_request_identity(session_id, "documents")
+    if not ok:
+        raise HTTPException(status_code=400, detail=err)
+    return {"documents": c.retrieval.list_documents(session_id)}
 
 
 @router.delete("/documents/{filename}")

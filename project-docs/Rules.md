@@ -15,7 +15,7 @@ Related: [PRD](PRD.md) · [Architecture](Architecture.md) · [Design](Design.md)
 | Retrieval strategy and query rewrites | Retry limits, max tool calls, max execution time |
 | Whether evidence is sufficient | Quiz scoring, progression, accuracy, duplicate prevention |
 | Whether an answer needs revision | Schema validation, safety constraints |
-| Quiz question wording, study plan wording | Database operations, persistence, dashboard metrics |
+| Quiz question wording | Database operations, persistence, dashboard metrics |
 
 Never use an LLM for quiz scoring, security decisions, isolation filters, counters and limits, or computing statistics.
 

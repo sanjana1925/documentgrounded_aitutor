@@ -2,7 +2,7 @@ AI TUTOR GUIDE
 
 A document-grounded AI tutor that helps students learn from their own PDF study materials.
 
-Upload a PDF, ask questions, get simple explanations, take adaptive quizzes, track performance, and receive a personalized study plan.
+Upload a PDF, ask questions, get simple explanations, take adaptive quizzes, and track performance.
 
 The project uses AI agents for flexible decision-making, while Python handles the important rules: validation, scoring, limits, privacy, and data storage.
 

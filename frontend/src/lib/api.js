@@ -39,6 +39,11 @@ export async function uploadDocument(file, sessionId) {
   return asJson(res);
 }
 
+export async function fetchDocuments(sessionId) {
+  const res = await fetch(`${API_URL}/documents?session_id=${encodeURIComponent(sessionId)}`, { headers: authHeaders() });
+  return asJson(res);
+}
+
 export async function deleteDocument(filename, sessionId) {
   const res = await fetch(
     `${API_URL}/documents/${encodeURIComponent(filename)}?session_id=${encodeURIComponent(sessionId)}`,
