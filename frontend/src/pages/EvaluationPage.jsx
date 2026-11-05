@@ -25,8 +25,8 @@ function MetricGroup({ icon: Icon, title, metrics }) {
         <h3 className="font-heading font-extrabold">{title}</h3>
       </div>
       <div className="grid grid-cols-2 gap-4">
-        {metrics.map(([label, value]) => (
-          <div key={label}>
+        {metrics.map(([label, value, hint]) => (
+          <div key={label} title={hint}>
             <p className="text-xs font-semibold text-muted-fg">{label}</p>
             <p className="font-heading text-xl font-extrabold">{value ?? "N/A"}</p>
           </div>
@@ -87,6 +87,7 @@ export default function EvaluationPage() {
   };
 
   const sys = report?.system_evaluation;
+  const k = sys?.top_k ?? 4;
   const hasLearnerData = !dashLoading && dash && dash.status !== "no_data" && dash.total_attempted > 0;
   const weakTopics = hasLearnerData ? dash.weak_topics || [] : [];
   const topicsChecked = hasLearnerData
@@ -211,16 +212,18 @@ export default function EvaluationPage() {
                   icon={Search}
                   title="Retrieval"
                   metrics={[
-                    ["Recall@4", sys.avg_retrieval_recall_at_k],
-                    ["Precision@4", sys.avg_retrieval_precision_at_k],
+                    [`Recall@${k}`, sys.avg_retrieval_recall_at_k, `Share of questions whose source chunk is in the first search's top ${k}`],
+                    [`Precision@${k}`, sys.avg_retrieval_precision_at_k, `Share of the top ${k} chunks that are relevant`],
                   ]}
                 />
                 <MetricGroup
                   icon={Sparkles}
                   title="Generation"
                   metrics={[
-                    ["Answer Similarity", sys.avg_answer_similarity],
-                    ["Groundedness", sys.avg_groundedness_score],
+                    ["Answer Similarity", sys.avg_answer_similarity, "Embedding similarity to the reference answer"],
+                    ["Groundedness", sys.avg_groundedness_score, "Word overlap with the evidence the system used"],
+                    ["Groundedness (equal evidence)", sys.avg_groundedness_shared, "Same overlap, but against the same top-k evidence for every system"],
+                    ["Faithfulness (LLM judge)", sys.avg_faithfulness_llm_judge, "A model scores whether every claim is supported. Only present when the run used --judge"],
                   ]}
                 />
                 <MetricGroup
@@ -229,9 +232,29 @@ export default function EvaluationPage() {
                   metrics={[
                     ["Avg Latency (s)", sys.avg_latency_seconds == null ? null : Number(sys.avg_latency_seconds).toFixed(1)],
                     ["Questions Evaluated", sys.num_questions],
+                    ["Answered", sys.num_answered == null ? null : `${sys.num_answered} / ${sys.num_questions}`, "Similarity, groundedness and faithfulness are averaged over answered questions only"],
+                    ["Declined", sys.safe_fallback_rate == null ? null : `${Math.round(sys.safe_fallback_rate * 100)}%`, "Share of questions the tutor refused or could not answer"],
                   ]}
                 />
               </div>
+
+              <StickerCard className="p-5 mb-10">
+                <div className="flex items-center gap-2 mb-3">
+                  <Info size={18} strokeWidth={2.5} className="text-violet" />
+                  <h4 className="font-heading font-extrabold">How these are measured</h4>
+                </div>
+                <ul className="text-sm text-muted-fg space-y-1.5 list-disc pl-5">
+                  <li>This benchmark is run offline with <code>python evaluate.py</code> on questions checked against your document. It is not recalculated while you chat.</li>
+                  <li><strong>Recall / Precision</strong> test search only: did the first search find the right chunk?</li>
+                  <li><strong>Answer Similarity</strong> compares meaning with a reference answer. It is a closeness score, not proof of correctness.</li>
+                  <li><strong>Groundedness</strong> is a word-overlap heuristic. <strong>Equal evidence</strong> scores every system against the same top-{k} chunks, so a system that gathers more text is not favoured.</li>
+                  <li><strong>Faithfulness</strong> is judged by a model and appears only when the run used <code>--judge</code>.</li>
+                  <li>Declined questions are left out of the similarity, groundedness and faithfulness averages. Check "Answered" and "Declined" to see how many.</li>
+                  {sys.num_questions < 20 && (
+                    <li>Only {sys.num_questions} questions were scored, so one question moves an average a lot. Treat small differences as noise.</li>
+                  )}
+                </ul>
+              </StickerCard>
 
               {report.results?.length > 0 && (
                 <div>
@@ -244,7 +267,7 @@ export default function EvaluationPage() {
                           <th className="px-4 py-3">Question</th>
                           <th className="px-4 py-3">Topic</th>
                           <th className="px-4 py-3">Difficulty</th>
-                          <th className="px-4 py-3">Recall@4</th>
+                          <th className="px-4 py-3">Recall@{k}</th>
                           <th className="px-4 py-3">Similarity</th>
                           <th className="px-4 py-3">Groundedness</th>
                           <th className="px-4 py-3">Latency (s)</th>

@@ -30,6 +30,8 @@ Input validation · Prompt-injection checks · Evidence validation · Output gro
 
 ### 📈 Evaluation
 
+Measured offline with `python evaluate.py`; see [project-docs/Evaluation.md](project-docs/Evaluation.md) for exactly what each metric is, where it is computed, and its limits.
+
 | Metric | Baseline RAG | Agentic RAG |
 |---|---:|---:|
 | Recall@4 | 0.90 | 0.90 |

@@ -46,8 +46,10 @@ def default_embedder() -> Embedder:
 
 
 class EvaluationService:
-    def __init__(self, llm, retrieval: RetrievalService, graph, embed: Embedder, top_k: int = config.QA_TOP_K):
+    def __init__(self, llm, retrieval: RetrievalService, graph, embed: Embedder, top_k: int = config.QA_TOP_K, judge_llm=None):
         self.llm, self.retrieval, self.graph, self.embed, self.top_k = llm, retrieval, graph, embed, top_k
+        # The model that scores faithfulness. Defaults to the answering model; a different one avoids self-judging.
+        self.judge_llm = judge_llm or llm
 
     # ---- arms -------------------------------------------------------------
     def run_baseline(self, scope: Scope, question: str) -> Dict[str, Any]:
@@ -59,6 +61,8 @@ class EvaluationService:
             "first_attempt_chunks": chunks,
             "all_retrieved_indices": [c["chunk_index"] for c in chunks],
             "evidence_texts": [c["text"] for c in chunks],
+            # The baseline's own evidence IS the standard top-k retrieval of the raw question.
+            "shared_evidence_texts": [c["text"] for c in chunks],
             "latency": time.perf_counter() - start,
             "workflow": {"completed": bool(answer), "fell_back_to_safe_answer": ev.abstained(answer), "tool_calls": 1,
                          "llm_calls": 1 if chunks else 0, "retrieval_attempts": 1, "revisions": 0,
@@ -79,6 +83,8 @@ class EvaluationService:
             "first_attempt_chunks": self.retrieval.get_by_indices(scope, first_indices),
             "all_retrieved_indices": all_indices,
             "evidence_texts": [c["text"] for c in final.get("evidence", [])],
+            # Arm-independent evidence: the same top-k search the baseline uses, so both arms can be judged on equal terms.
+            "shared_evidence_texts": [c["text"] for c in self.retrieval.search(scope, question, self.top_k)],
             "latency": latency,
             "llm_error": final.get("llm_error"),
             "workflow": ev.workflow_metrics(trace, budget.snapshot(), gold_chunk, reply, final.get("stop_reason")),
@@ -107,6 +113,9 @@ class EvaluationService:
             "groundedness_score": None,
             "faithfulness": None,
             "answer_relevancy": None,
+            "groundedness_shared": None,
+            "faithfulness_shared": None,
+            "evidence_chunks": len(out["evidence_texts"]),
             "latency_seconds": round(out["latency"], 2),
             **out["workflow"],
         }
@@ -115,10 +124,16 @@ class EvaluationService:
             row["answer_similarity"] = round(sim, 3) if sim is not None else None
             g = ev.lexical_groundedness(out["answer"], out["evidence_texts"])
             row["groundedness_score"] = round(g, 3) if g is not None else None
+            shared = out.get("shared_evidence_texts", out["evidence_texts"])
+            gs = ev.lexical_groundedness(out["answer"], shared)
+            row["groundedness_shared"] = round(gs, 3) if gs is not None else None
             if judge:
-                f = ev.llm_judge(self.llm, "faithfulness", item["question"], out["answer"], out["evidence_texts"])
-                r = ev.llm_judge(self.llm, "answer_relevancy", item["question"], out["answer"], out["evidence_texts"])
+                f = ev.llm_judge(self.judge_llm, "faithfulness", item["question"], out["answer"], out["evidence_texts"])
+                r = ev.llm_judge(self.judge_llm, "answer_relevancy", item["question"], out["answer"], out["evidence_texts"])
+                # Same evidence as the baseline saw: reuse the score when it is literally the same text, else judge again.
+                fs = f if shared == out["evidence_texts"] else ev.llm_judge(self.judge_llm, "faithfulness", item["question"], out["answer"], shared)
                 row["faithfulness"] = round(f, 3) if f is not None else None
+                row["faithfulness_shared"] = round(fs, 3) if fs is not None else None
                 row["answer_relevancy"] = round(r, 3) if r is not None else None
         return row
 
@@ -179,6 +194,9 @@ def aggregate(all_rows: List[Dict[str, Any]], top_k: int = config.QA_TOP_K) -> D
         "avg_groundedness_score": _mean([r["groundedness_score"] for r in rows]),
         "avg_faithfulness_llm_judge": _mean([r["faithfulness"] for r in rows]),
         "avg_answer_relevancy_llm_judge": _mean([r["answer_relevancy"] for r in rows]),
+        "avg_groundedness_shared": _mean([r.get("groundedness_shared") for r in rows]),
+        "avg_faithfulness_shared_llm_judge": _mean([r.get("faithfulness_shared") for r in rows]),
+        "avg_evidence_chunks": _mean([r.get("evidence_chunks") for r in rows]),
         "avg_latency_seconds": _mean([r["latency_seconds"] for r in rows]),
         "avg_llm_calls": _mean([r["llm_calls"] for r in rows]),
         "avg_tool_calls": _mean([r["tool_calls"] for r in rows]),
@@ -191,6 +209,8 @@ def aggregate(all_rows: List[Dict[str, Any]], top_k: int = config.QA_TOP_K) -> D
     return {
         "num_questions": n,
         "num_errored_excluded": len(all_rows) - n,
+        # Similarity / groundedness / faithfulness are averaged over answered questions only; this is that n.
+        "num_answered": sum(1 for r in rows if not r["abstained"]),
         "top_k": top_k,
         **metrics,
         "not_evaluated": sorted(k for k, v in metrics.items() if v is None),
@@ -199,7 +219,8 @@ def aggregate(all_rows: List[Dict[str, Any]], top_k: int = config.QA_TOP_K) -> D
 
 COMPARED = [
     ("avg_retrieval_recall_at_k", True), ("avg_retrieval_precision_at_k", True), ("avg_answer_similarity", True),
-    ("avg_groundedness_score", True), ("avg_faithfulness_llm_judge", True), ("avg_answer_relevancy_llm_judge", True),
+    ("avg_groundedness_score", True), ("avg_groundedness_shared", True), ("avg_faithfulness_llm_judge", True),
+    ("avg_faithfulness_shared_llm_judge", True), ("avg_answer_relevancy_llm_judge", True),
     ("completion_rate", True), ("safe_fallback_rate", False), ("avg_llm_calls", False), ("avg_tool_calls", False), ("avg_latency_seconds", False),
 ]
 
@@ -238,6 +259,10 @@ def build_report(arms: Dict[str, List[Dict[str, Any]]], dataset_info: Dict[str, 
             "retrieval_precision_at_k": "share of top-k chunks that are the gold chunk or contain >=50% of the expected keywords",
             "answer_similarity": "cosine similarity of MiniLM embeddings between the answer and the reference answer",
             "groundedness_score": "HEURISTIC: share of the answer's content words that appear in the evidence (not an LLM judgement)",
+            "groundedness_shared": "same heuristic, but scored against the standard top-k retrieval of the raw question for BOTH arms, so the arms are compared on equal evidence",
+            "faithfulness_shared_llm_judge": "LLM-judge faithfulness against that same shared evidence (--judge only)",
+            "avg_evidence_chunks": "how many chunks the arm's generator was given on average (the agentic arm can gather more than the baseline)",
+            "num_answered": "questions answered rather than declined; similarity, groundedness and faithfulness are averaged over these only",
             "faithfulness_llm_judge / answer_relevancy_llm_judge": "LLM-as-judge scores, only present when the run used --judge",
         },
     }

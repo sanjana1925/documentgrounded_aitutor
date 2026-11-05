@@ -91,7 +91,15 @@ def make_evaluators(embed, llm=None, judge: bool = False, top_k: int = 4, judge_
             return skipped
         return _result("revision_attempts", float(outputs(run).get("workflow", {}).get("revisions", 0)))
 
-    evaluators: List[Callable] = [recall_at_k, precision_at_k, answer_similarity, lexical_groundedness, completed, safe_fallback,
+    def groundedness_shared(run, example):
+        if (skipped := skip_if_errored("groundedness_shared", run)) is not None:
+            return skipped
+        o = outputs(run)
+        if ev.abstained(o.get("answer", "")):
+            return _result("groundedness_shared", None, "abstained")
+        return _result("groundedness_shared", ev.lexical_groundedness(o.get("answer", ""), o.get("shared_evidence_texts", o.get("evidence_texts", []))), "heuristic, equal evidence for both arms")
+
+    evaluators: List[Callable] = [recall_at_k, precision_at_k, answer_similarity, lexical_groundedness, groundedness_shared, completed, safe_fallback,
                                   tool_calls, unnecessary_retries, revisions]
 
     if judge and llm is not None:
@@ -131,7 +139,7 @@ def run_experiments(service: EvaluationService, scope: Scope, items: List[Dict[s
 
     upload_to_langsmith(client, dataset_name, items)
     by_question = {i["question"]: i for i in items}
-    evaluators = make_evaluators(service.embed, service.llm, judge, service.top_k, judge_pause)
+    evaluators = make_evaluators(service.embed, service.judge_llm, judge, service.top_k, judge_pause)
     experiments: Dict[str, Any] = {}
 
     for arm in arms:
@@ -141,7 +149,7 @@ def run_experiments(service: EvaluationService, scope: Scope, items: List[Dict[s
                 time.sleep(pause)
             # Same retry/backoff as the local run: a provider rate limit must not become an errored example.
             out = service.call_with_retry(arm, scope, by_question[question], retries, backoff)
-            return {k: out[k] for k in ("answer", "first_attempt_chunks", "evidence_texts", "workflow")} | {"latency_seconds": round(out["latency"], 2)}
+            return {k: out[k] for k in ("answer", "first_attempt_chunks", "evidence_texts", "shared_evidence_texts", "workflow")} | {"latency_seconds": round(out["latency"], 2)}
 
         results = evaluate_fn(
             target,

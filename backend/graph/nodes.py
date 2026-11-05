@@ -184,7 +184,10 @@ def build_nodes(deps: Deps) -> Dict[str, Callable]:
             update["critic_feedback"] = deps.critic.feedback_text(review)
             if action == "retrieve_again":
                 update["last_eval"] = {**(state.get("last_eval") or {}), "missing_information": review.missing_information, "suggested_query": ""}
-        annotate(metadata={"critic_action": action, "revision_attempt": budget.revisions})
+        annotate(metadata={
+            "critic_action": action, "revision_attempt": budget.revisions, "critic_grounded": review.grounded,
+            "critic_complete": review.complete, "critic_unsupported_claims": len(review.unsupported_claims),
+        })
         update["trace"] = [{"step": "critic_agent", "source": source, "action": action, "reason": reason, **review.model_dump()}]
         return update
 
