@@ -51,7 +51,7 @@ You need Python 3.10+, Node 18+ and a [Gemini API key](https://aistudio.google.c
 ```bash
 # backend (http://localhost:8000)
 python -m venv .venv
-.venv\Scriptsctivate            # macOS/Linux: source .venv/bin/activate
+.venv\Scripts\activate            # macOS/Linux: source .venv/bin/activate
 pip install -r requirements.txt
 copy .env.example .env            # macOS/Linux: cp .env.example .env, then set GEMINI_API_KEY
 uvicorn app:app --port 8000
