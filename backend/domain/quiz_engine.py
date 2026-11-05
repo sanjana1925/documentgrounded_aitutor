@@ -40,6 +40,7 @@ class LearnerState(BaseModel):
     topic_stats: Dict[str, TopicStats] = Field(default_factory=dict)
     asked_questions: List[str] = Field(default_factory=list)
     current_question: Optional[Dict[str, Any]] = None
+    quiz_complete: bool = False  # the 15-question SIMPLE round ended below the benchmark
 
     def get_overall_accuracy(self) -> float:
         return (self.total_correct / self.total_attempted * 100.0) if self.total_attempted > 0 else 0.0
@@ -112,6 +113,8 @@ def record_quiz_answer(state: LearnerState, is_correct: bool, topic: str, questi
                 state.current_phase = "MEDIUM"
                 state.phase_question_count = 0
                 phase_transitioned = True
+            else:
+                state.quiz_complete = True  # the round is exactly 15 questions: never a 16th
     elif state.current_phase == "MEDIUM":
         if state.phase_question_count >= MEDIUM_CHECK_INTERVAL:
             medium_acc = state.get_medium_accuracy()

@@ -70,6 +70,7 @@ export default function QuizPage() {
     setSelected(null);
   }
 
+  const quizComplete = Boolean(resp?.quiz_details?.quiz_complete);
   const question = resp?.quiz_details?.question_dict;
   const phase = resp?.quiz_details?.current_phase || "SIMPLE";
   const progress = parseQuizProgress(resp?.reply);
@@ -155,6 +156,21 @@ export default function QuizPage() {
               <PrimaryButton icon={ArrowRight} onClick={handleContinue} className="mt-5">
                 Continue
               </PrimaryButton>
+            </StickerCard>
+          )}
+
+          {!showFeedback && quizComplete && (
+            <StickerCard className="p-6 sm:p-8 text-center">
+              <PartyPopper size={32} strokeWidth={2.5} className="mx-auto mb-3 text-amber" />
+              <h3 className="font-heading text-2xl font-extrabold mb-2">Quiz complete</h3>
+              <p className="text-lg font-semibold mb-1">
+                Score: {resp.quiz_score} / {resp.quiz_total} ({Math.round(resp.quiz_details.overall_accuracy)}%)
+              </p>
+              <p className="text-muted-fg mb-5">You need 70% to unlock the next phase. Reset to try again.</p>
+              {resp.quiz_details.weak_topics?.length > 0 && (
+                <p className="text-sm mb-5">Topics to review: {resp.quiz_details.weak_topics.join(", ")}</p>
+              )}
+              <PrimaryButton icon={RotateCcw} onClick={handleReset}>Reset Quiz</PrimaryButton>
             </StickerCard>
           )}
 

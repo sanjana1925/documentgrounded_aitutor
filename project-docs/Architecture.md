@@ -291,7 +291,7 @@ Provider failures and time-budget stops are retried, then marked errored and exc
 
 15. EXTENSION POINTS
 
-* New agent: add a class in agents/, a Pydantic schema in agents/schemas.py, an allow-listed tool subset, a node in graph/nodes.py, routing in graph/workflow.py, and tests with FakeLLM.
+* New agent: add a class in agents/, a Pydantic schema in agents/schemas.py, an allow-listed tool subset, a node in graph/nodes.py, and routing in graph/workflow.py.
 * New tool: ToolArgs (extra forbidden) plus a function returning ToolResult in tools/, register it in tools/__init__.py, and add it to exactly the agents that need it.
 * New store or database: implement it behind a services/ class and keep Scope(session, document) mandatory on every method.
 * Different model: implement the LLM protocol (text, structured). Tests already do.

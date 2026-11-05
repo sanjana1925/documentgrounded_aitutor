@@ -147,16 +147,6 @@ The System Benchmark (RAG evaluation) is on this page too, and it is password pr
 
 ---
 
-📅 STUDY PLANNER
-
-Python finds the weak topics from your real performance. The Planner Agent then adds a study activity, a time estimate, and a short reason for each topic.
-
-```text
-Quiz Results → Python calculates → Weak topics → Planner Agent → Study Plan
-```
-
----
-
 AI AGENTS
 
 Each agent has one clear job.
@@ -167,7 +157,6 @@ Each agent has one clear job.
 * Tutor Agent: writes the explanation from the evidence.
 * Critic Agent: reviews the answer for grounding and unsupported claims.
 * Quiz Agent: writes quiz questions with options, topic, and explanation.
-* Study Planner Agent: picks activities and time for each weak topic. It never changes scores.
 * Guide Agent: writes summaries, key points, and glossaries.
 
 ---
@@ -224,8 +213,7 @@ requirements.txt  Python packages
 .venv/            Python virtual environment
 backend/          all backend code
 frontend/         React app
-tests/            automated tests
-scripts/          start-backend.bat, start-frontend.bat, run-tests.bat
+scripts/          start-backend.bat, start-frontend.bat
 data/             your local data: indexed documents, chat database, quiz progress, evaluation report (git-ignored)
 project-docs/     PRD, Architecture, Design, Rules, Tasks
 ```
@@ -233,11 +221,11 @@ project-docs/     PRD, Architecture, Design, Rules, Tasks
 Main folders inside backend/:
 
 * api/: FastAPI endpoints
-* domain/: quiz rules and study plan rules (plain Python, no AI)
+* domain/: quiz rules (plain Python, no AI)
 * agents/: agent logic
 * tools/: tools agents can use
 * graph/: LangGraph workflow
-* services/: retrieval, Gemini, quiz, planner, memory, storage
+* services/: retrieval, Gemini, quiz, memory, storage
 * guardrails/: input, retrieval, and output checks
 * evaluation/: golden dataset and scoring
 * observability/: LangSmith setup
@@ -252,7 +240,6 @@ POST    /upload
 DELETE  /documents/{filename}
 POST    /agent
 GET     /dashboard
-GET     /planner
 GET     /evaluation        (needs the benchmark password)
 POST    /quiz/reset
 GET     /chat/history

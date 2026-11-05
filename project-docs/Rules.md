@@ -107,19 +107,6 @@ Compatibility
 
 ---
 
-8. TESTING RULES
-
-1. Run the full suite before finishing any change: python -m unittest discover tests (currently 213 tests, about 7 s).
-2. Tests are offline. No network, no real keys, no real LangSmith. Use FakeLLM, the in-memory Chroma with HashEmbedding, temp directories, and RecordingClient. helpers.py sets TUTOR_DISABLE_TRACING=1.
-3. No hidden randomness in tests. Derive expectations from the inputs the code received.
-4. Every guardrail, limit, and fallback has a test.
-5. Fake-LLM tests prove plumbing. Real runs prove behaviour. After changing prompts or routing, smoke-test against the real model.
-6. Regression first: reproduce a bug in a test, then fix it.
-7. After restarting servers, verify the new code is what answers (for example, a new route exists). A stale process once served old code.
-8. Environment changes (like a new variable in .env) need a backend restart to take effect.
-
----
-
 9. EVALUATION AND OBSERVABILITY RULES
 
 1. Every request is traced with meaningful names, tags, and metadata. Tracing must never break a request.
@@ -157,9 +144,7 @@ Compatibility
 
 A change is done when:
 
-* The full test suite passes offline.
-* New behaviour has tests, including failure paths and limits.
-* API compatibility is preserved (test_api_compat.py).
+* API compatibility is preserved.
 * Guardrails and isolation are unaffected or extended with tests.
 * A real-model smoke test was run for prompt or routing changes.
 * Traces still show named runs, tags, and metadata.

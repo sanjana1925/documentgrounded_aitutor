@@ -90,14 +90,6 @@ export async function fetchDashboard(filename, sessionId) {
   return asJson(res);
 }
 
-export async function fetchPlanner(filename, sessionId) {
-  const res = await fetch(
-    `${API_URL}/planner?session_id=${encodeURIComponent(sessionId)}&filename=${encodeURIComponent(filename)}`,
-    { headers: authHeaders() }
-  );
-  return asJson(res);
-}
-
 export async function resetQuiz(filename, sessionId) {
   const res = await fetch(
     `${API_URL}/quiz/reset?session_id=${encodeURIComponent(sessionId)}&filename=${encodeURIComponent(filename)}`,

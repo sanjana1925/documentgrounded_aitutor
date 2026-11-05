@@ -18,7 +18,6 @@ from langsmith import traceable
 from backend import config as cfg
 from backend.agents.critic import CriticAgent
 from backend.agents.guide import GuideAgent
-from backend.agents.planner import StudyPlannerAgent
 from backend.agents.quiz import QuizAgent
 from backend.agents.retrieval import EvidenceEvaluator, RetrievalAgent
 from backend.agents.supervisor import _MODE_TO_INTENT, SupervisorAgent
@@ -45,7 +44,6 @@ def build_deps(llm: LLM, retrieval: RetrievalService, learner: LearnerStateServi
         tutor=TutorAgent(llm),
         critic=CriticAgent(llm),
         quiz=QuizAgent(llm, registry, learner),
-        planner=StudyPlannerAgent(llm, registry, learner),
         guide=GuideAgent(llm),
     )
 
@@ -65,7 +63,6 @@ def route_after_supervisor(state: GraphState, config: RunnableConfig) -> str:
         "retrieve": "retrieval_agent",
         "summarize": "guide_agent",
         "quiz": "quiz_agent",
-        "plan": "study_planner_agent",
     }.get(state["decision"]["next_action"], "respond_other")
 
 
@@ -140,7 +137,7 @@ def build_workflow(deps: Deps):
     g.add_conditional_edges("tutor_agent", route_after_tutor)
     g.add_conditional_edges("critic_agent", route_after_critic)
     g.add_conditional_edges("output_guardrail", route_after_guardrail)
-    for terminal in ("guide_agent", "quiz_agent", "study_planner_agent"):
+    for terminal in ("guide_agent", "quiz_agent"):
         g.add_conditional_edges(terminal, route_after_terminal)
     g.add_edge("respond_other", END)
     g.add_edge("safe_fallback", END)

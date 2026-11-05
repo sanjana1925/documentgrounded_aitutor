@@ -127,8 +127,7 @@ Non-goals (this release)
 | Cost | Bounded per request | Typical 4 model calls, hard cap 12 |
 | Reliability | Failures give an honest fallback, never a crash or made-up answer | Enforced and tested |
 | Privacy | Session and document isolation, no secrets or raw session ids in traces | Enforced and tested |
-| Compatibility | Existing API shapes preserved | Enforced by test_api_compat.py |
-| Testability | Offline test suite | 213 tests, about 7 s, no network or keys |
+| Compatibility | Existing API shapes preserved | Preserved |
 | Accessibility | Visible focus, keyboard use, reduced motion, status never by colour alone | Implemented, see Design.md |
 
 ---

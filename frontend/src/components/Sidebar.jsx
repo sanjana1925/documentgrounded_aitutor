@@ -1,10 +1,9 @@
 import { NavLink } from "react-router-dom";
-import { LayoutDashboard, Bot, CalendarCheck, Brain, BarChart3, Sparkles, X } from "lucide-react";
+import { LayoutDashboard, Bot, Brain, BarChart3, Sparkles, X } from "lucide-react";
 
 const NAV_ITEMS = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/tutor", label: "AI Tutor", icon: Bot },
-  { to: "/planner", label: "Study Planner", icon: CalendarCheck },
   { to: "/quiz", label: "Adaptive Quiz", icon: Brain },
   { to: "/evaluation", label: "Evaluation", icon: BarChart3 },
 ];

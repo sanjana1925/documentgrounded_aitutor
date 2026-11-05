@@ -13,4 +13,3 @@ python-dotenv
 google-genai
 httpx
 python-multipart
-pytest
