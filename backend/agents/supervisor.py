@@ -21,9 +21,8 @@ SUPERVISOR_SYSTEM = (
     "keep intent qa and set response_style to simple, eli5 or examples), summary, key_points, "
     "eli5 (only when the learner wants a beginner walkthrough of the WHOLE document from scratch), glossary "
     "(definitions of the document's key terms), quiz "
-    "(wants to be quizzed, or is answering a quiz question), study_plan (wants to know what to study/"
-    "review next), other (greeting, off-topic, unclear, or unsafe).\n"
-    "Actions: retrieve (qa), summarize (summary/key_points/eli5/glossary), quiz, plan (study_plan), "
+    "(wants to be quizzed, or is answering a quiz question), other (greeting, off-topic, unclear, or unsafe).\n"
+    "Actions: retrieve (qa), summarize (summary/key_points/eli5/glossary), quiz, "
     "clarify (request is too ambiguous - provide clarifying_question), reject (unsupported or unsafe), "
     "finish (nothing left to do, e.g. a greeting).\n"
     "Always fill standalone_query: rewrite the latest message so it is fully self-contained, resolving "
@@ -34,18 +33,18 @@ QUIZ_ANSWER_SHORTCUT = re.compile(r"^\s*([0-3]|option\s*[1-4]|[a-d])\s*$", re.IG
 
 _MODE_TO_INTENT = {
     "qa": "qa", "summary": "summary", "key_points": "key_points", "eli5": "eli5",
-    "glossary": "glossary", "quiz": "quiz", "study_plan": "study_plan",
+    "glossary": "glossary", "quiz": "quiz",
 }
 VALID_MODES = set(_MODE_TO_INTENT)
 
 _INTENT_ACTION = {
     "qa": "retrieve", "summary": "summarize", "key_points": "summarize", "eli5": "summarize",
-    "glossary": "summarize", "quiz": "quiz", "study_plan": "plan",
+    "glossary": "summarize", "quiz": "quiz",
 }
 _INTENT_STYLE = {"eli5": "eli5", "key_points": "key_points", "glossary": "glossary"}
 _INTENT_GOAL = {
     "qa": "explain_concept", "summary": "overview", "key_points": "overview", "eli5": "overview",
-    "glossary": "overview", "quiz": "practice", "study_plan": "review_progress",
+    "glossary": "overview", "quiz": "practice",
 }
 
 

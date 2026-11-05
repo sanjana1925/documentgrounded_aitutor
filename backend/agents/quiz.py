@@ -63,6 +63,27 @@ class QuizAgent:
             rejected = reason
         return None
 
+    @staticmethod
+    def _complete_result(state, reply_parts: List[str], event: Dict[str, Any]) -> Dict[str, Any]:
+        acc = state.get_overall_accuracy()
+        reply_parts = [*reply_parts, (
+            f"🏁 **Quiz complete.** Final score: **{state.total_correct}/{state.total_attempted}** ({acc:.1f}%). "
+            f"You need 70% to unlock the next phase. Reset the quiz to try again."
+        )]
+        return {
+            "reply": "\n\n".join(reply_parts),
+            "score": state.total_correct,
+            "total": state.total_attempted,
+            "quiz_details": {
+                "current_phase": state.current_phase,
+                "question_dict": None,
+                "quiz_complete": True,
+                "overall_accuracy": acc,
+                "weak_topics": state.get_weak_topics(),
+            },
+            "event": event,
+        }
+
     def take_turn(self, *, scope: Scope, message: str, budget: Budget) -> Dict[str, Any]:
         event: Dict[str, Any] = {"step": "quiz_agent"}
         with self.learner.locked(scope):
@@ -76,6 +97,11 @@ class QuizAgent:
                 or any(o.lower() in message.lower() for o in pending.get("options", []))
             )
 
+            if state.quiz_complete and not pending:
+                # Already finished (e.g. the page was reloaded): show the result again, never a 16th question.
+                event["action"] = "quiz_complete"
+                return self._complete_result(state, [], event)
+
             if pending and not answer_recognized:
                 # Not an answer (e.g. the page was reloaded): re-present the pending question, don't grade or regenerate.
                 event["action"] = "re_present_pending_question"
@@ -85,6 +111,10 @@ class QuizAgent:
                     evaluation, _, parts = quiz_service.score_pending_answer(state, message)
                     reply_parts.extend(parts)
                     event["graded"] = evaluation.model_dump()
+                if state.quiz_complete:
+                    self.learner.save(state)
+                    event["action"] = "quiz_complete"
+                    return self._complete_result(state, reply_parts, event)
                 event["action"] = "generate_question"
                 event["phase"] = state.current_phase
                 event["weak_topics_targeted"] = state.get_weak_topics()

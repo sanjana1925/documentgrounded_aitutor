@@ -4,8 +4,8 @@ from typing import List, Literal, Optional
 
 from pydantic import BaseModel, Field
 
-Intent = Literal["qa", "summary", "key_points", "eli5", "glossary", "quiz", "study_plan", "other"]
-Action = Literal["retrieve", "generate", "summarize", "quiz", "plan", "clarify", "reject", "finish"]
+Intent = Literal["qa", "summary", "key_points", "eli5", "glossary", "quiz", "other"]
+Action = Literal["retrieve", "generate", "summarize", "quiz", "clarify", "reject", "finish"]
 Style = Literal["normal", "simple", "eli5", "key_points", "glossary", "examples"]
 Goal = Literal["explain_concept", "find_fact", "compare_concepts", "overview", "practice", "review_progress", "other"]
 
@@ -85,18 +85,6 @@ class QuizEvaluation(BaseModel):
     phase_transitioned: bool
     overall_accuracy: float
 
-
-class StudyPlanItem(BaseModel):
-    topic: str
-    priority: Literal["high", "medium", "low"]
-    activity: Literal["review", "practice", "review_and_practice", "maintain"]
-    estimated_minutes: int
-    reason: str
-
-
-class StudyPlanProposal(BaseModel):
-    items: List[StudyPlanItem]
-    summary: str = ""
 
 
 class ToolError(BaseModel):

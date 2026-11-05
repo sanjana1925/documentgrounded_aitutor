@@ -4,7 +4,6 @@ from typing import Annotated, Any, Dict, List, TypedDict
 
 from backend.agents.critic import CriticAgent
 from backend.agents.guide import GuideAgent
-from backend.agents.planner import StudyPlannerAgent
 from backend.agents.quiz import QuizAgent
 from backend.agents.retrieval import EvidenceEvaluator, RetrievalAgent
 from backend.agents.supervisor import SupervisorAgent
@@ -63,5 +62,4 @@ class Deps:
     tutor: TutorAgent
     critic: CriticAgent
     quiz: QuizAgent
-    planner: StudyPlannerAgent
     guide: GuideAgent

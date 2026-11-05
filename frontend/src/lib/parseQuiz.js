@@ -7,7 +7,8 @@
 
 export function parseQuizFeedback(replyText) {
   if (!replyText) return null;
-  const marker = replyText.indexOf("📊 `");
+  let marker = replyText.indexOf("📊 `");
+  if (marker === -1) marker = replyText.indexOf("🏁"); // final turn: feedback, then the result, no next question
   const feedbackText = marker === -1 ? "" : replyText.slice(0, marker).replace(/^-+\s*/, "").trim();
   if (!feedbackText) return null;
 

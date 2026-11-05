@@ -1,4 +1,4 @@
-"""Dashboard / planner / evaluation / quiz-reset endpoints."""
+"""Dashboard / evaluation / quiz-reset endpoints."""
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -10,7 +10,6 @@ from backend.container import Container, get_container
 from backend.evaluation.report import load_report
 from backend.guardrails.input import validate_request_identity
 from backend.observability.langsmith import request_metadata
-from backend.services import planner_service
 from backend.services.retrieval_service import Scope
 
 router = APIRouter()
@@ -49,27 +48,6 @@ def get_dashboard(session_id: str = "default", filename: str = "", c: Container 
         "strong_topics": state.get_strong_topics(),
         "topic_stats": {k: v.model_dump() for k, v in state.topic_stats.items()},
     }
-
-
-@router.get("/planner")
-def get_planner(session_id: str = "default", filename: str = "", c: Container = Depends(get_container)):
-    scope = _scope(session_id, filename)
-
-    @traceable(
-        name="study_planner_agent",
-        run_type="chain",
-        tags=["workflow:study-plan", "study-planner"],
-        metadata=request_metadata(session_id, filename, workflow_type="study-plan"),
-    )
-    def run_planner():
-        plan, _meta = c.deps.planner.plan(scope=scope, budget=Budget())
-        return plan
-
-    try:
-        return run_planner()
-    except Exception:  # noqa: BLE001 - the deterministic plan is always a safe answer
-        logger.exception("study planner agent failed; returning the deterministic plan")
-        return planner_service.deterministic_plan(c.learner.get(scope))
 
 
 @router.get("/evaluation", dependencies=[Depends(require_benchmark_password)])

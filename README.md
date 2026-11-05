@@ -11,7 +11,6 @@
 - 💬 Grounded AI tutoring with memory
 - 📝 Adaptive quizzes and scoring
 - 📊 Performance tracking
-- 📅 Personalized study plans
 - 🤖 Controlled multi-agent workflow
 <br>
 
@@ -42,6 +41,30 @@ Input validation · Prompt-injection checks · Evidence validation · Output gro
 
 ### 🔍 Observability
 **LangSmith** traces agent decisions, retrieval, revisions, latency, and model calls.
+
+<br>
+
+### 🚀 Run it
+
+You need Python 3.10+, Node 18+ and a [Gemini API key](https://aistudio.google.com/apikey).
+
+```bash
+# backend (http://localhost:8000)
+python -m venv .venv
+.venv\Scriptsctivate            # macOS/Linux: source .venv/bin/activate
+pip install -r requirements.txt
+copy .env.example .env            # macOS/Linux: cp .env.example .env, then set GEMINI_API_KEY
+uvicorn app:app --port 8000
+
+# frontend (http://localhost:5173), in a second terminal
+cd frontend
+copy .env.example .env            # macOS/Linux: cp .env.example .env
+npm install
+npm run dev
+```
+
+On Windows, `scripts/start-backend.bat` and `scripts/start-frontend.bat` start each side.
+Documents, chat history and quiz progress are stored locally in `data/`, which is created on first run.
 
 <br>
 

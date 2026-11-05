@@ -34,7 +34,7 @@ def configure_tracing() -> Dict[str, Any]:
     Normalise LangSmith env vars (current LANGSMITH_* names, with the older LANGCHAIN_* names
     accepted as a fallback) and return a secret-free status dict.
     """
-    if _truthy(os.environ.get("TUTOR_DISABLE_TRACING")):  # e.g. test runs must never upload traces
+    if _truthy(os.environ.get("TUTOR_DISABLE_TRACING")):  # explicit off switch
         os.environ["LANGSMITH_TRACING"] = "false"
         os.environ["LANGCHAIN_TRACING_V2"] = "false"
         return {"enabled": False, "project": None}

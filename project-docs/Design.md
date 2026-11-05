@@ -82,7 +82,7 @@ Sidebar (288 px)   |   Top header: page title, document pill, Manage documents b
 brand + 5 nav      |   Main content, max width 1200 px
 ```
 
-* Sidebar: brand "AI Tutor Guide" (sparkles icon in a violet circle) and five items: Dashboard, AI Tutor, Study Planner, Adaptive Quiz, Evaluation. Active is violet with white text and a small hard shadow. Hover is an amber tint. Below the lg breakpoint it becomes an off-canvas menu. The sidebar has no footer text.
+* Sidebar: brand "AI Tutor Guide" (sparkles icon in a violet circle) and four items: Dashboard, AI Tutor, Adaptive Quiz, Evaluation. Active is violet with white text and a small hard shadow. Hover is an amber tint. Below the lg breakpoint it becomes an off-canvas menu. The sidebar has no footer text.
 * Top header: page title on the left, current document as a pill and a primary Manage documents or Upload button on the right.
 * Responsive: desktop is multi-column, tablet has fewer columns and decorations, mobile is one column with buttons at least 48 px tall.
 
@@ -100,7 +100,7 @@ brand + 5 nav      |   Main content, max width 1200 px
 | ProgressBar | Chunky bar with role progressbar and aria values |
 | SectionHeader | Optional title with a squiggle, and a subtitle. Eyebrow labels were removed |
 | ChatBubble | User: violet, white text, plain text. Assistant: white with a dark border and a bot icon, renders markdown. Source pills read Source 1, Source 2 and open to show the excerpt. A failed reply gets a pink border and a Retry button. While waiting, a "Thinking..." bubble turns into a "taking longer than usual" note after 15 seconds |
-| Markdown | Renders the tutor's markdown with react-markdown and remark-gfm: bold, italic, bullet and numbered lists including nested ones, headings, tables, code. Raw HTML is never rendered. Used by chat replies and the study plan summary |
+| Markdown | Renders the tutor's markdown with react-markdown and remark-gfm: bold, italic, bullet and numbered lists including nested ones, headings, tables, code. Raw HTML is never rendered. Used by chat replies summary |
 | EmptyState | Icon tile, title, body, optional actions, decorative shapes |
 | UploadDropzone, DocumentPanel | Dashed drop area and a modal to upload, switch, and delete documents |
 
@@ -114,7 +114,6 @@ Inputs are white with a 2px border and 16px radius. Focus is a violet border and
 |---|---|---|
 | /dashboard | Dashboard | Heading "Welcome Aboard to Your Learning Forum". Metric cards (Overall Accuracy, Questions Attempted, Questions Correct, Topics Mastered). Difficulty Performance cards. Learning Progress card. Topic Performance table with status badges |
 | /tutor | AI Tutor | Quick-action pills (Summarize, Key Points, Explain Simply, Glossary, Quiz Me). Chat with markdown replies. Empty state "Ready to learn?". Large input and send button. Source pills |
-| /planner | Study Planner | Subtitle only (no page heading). Amber summary card rendered as markdown. Numbered cards (01, 02, ...) with topic, priority badge, recommendation, reason, and time estimate |
 | /quiz | Adaptive Quiz | Phase pill, Question N of 15 with a progress bar (Simple only), question card, whole-card clickable options, Submit, feedback card (Correct or Not quite) with explanation, Phase Complete block, Reset Quiz |
 | /evaluation | Evaluation | Subtitle only (no page heading). At-Risk Topics: topics below 60% with at least 2 answers, each showing accuracy, attempts, and how many points below the threshold. Below it, the System Benchmark (RAG Evaluation), locked behind a password |
 
@@ -129,7 +128,6 @@ WHY THE PAGES DO NOT REPEAT EACH OTHER
 
 * Dashboard: raw numbers (what happened).
 * Evaluation: risk analysis (what needs attention).
-* Study Planner: the ordered plan (what to do about it).
 
 DELIBERATE DEVIATIONS FROM THE ORIGINAL SPEC (data honesty)
 
@@ -144,7 +142,6 @@ DELIBERATE DEVIATIONS FROM THE ORIGINAL SPEC (data honesty)
 
 * Dashboard: "No document yet" and "Start learning to see your progress here".
 * Quiz: "Upload a document to start your first quiz".
-* Study Planner: "Complete some learning activities to build your study plan".
 * Evaluation: "No performance data yet" and "Take an adaptive quiz to unlock performance analysis". While loading it shows "Loading performance analysis...". If no topic has 2 answers yet it says so instead of claiming nothing is at risk.
 * Tutor: "Upload a document to start chatting" and "Ready to learn?".
 
@@ -166,7 +163,7 @@ DELIBERATE DEVIATIONS FROM THE ORIGINAL SPEC (data honesty)
 * Base URL is VITE_API_URL (default http://localhost:8000). An optional VITE_API_KEY is sent as X-API-Key.
 * The session id is in localStorage["tg_session_id"]. Per-session state (documents, chat cache, current document) is in localStorage["tg_state_<session>"].
 * POST /agent handles chat, quick actions (mode), and the quiz. The quiz page parses the markdown reply (lib/parseQuiz.js) for feedback and the question number. The question itself comes from quiz_details.question_dict.
-* GET /dashboard and GET /planner feed their pages. GET /evaluation is called only after the password is entered, with an X-Benchmark-Password header.
+* GET /dashboard feeds its page. GET /evaluation is called only after the password is entered, with an X-Benchmark-Password header.
 * GET /chat/history is used to restore the conversation when a document is opened (with source excerpts). agent_trace is available but not yet used by the UI (see Tasks.md).
 
 ---

@@ -39,6 +39,11 @@ export async function uploadDocument(file, sessionId) {
   return asJson(res);
 }
 
+export async function fetchDocuments(sessionId) {
+  const res = await fetch(`${API_URL}/documents?session_id=${encodeURIComponent(sessionId)}`, { headers: authHeaders() });
+  return asJson(res);
+}
+
 export async function deleteDocument(filename, sessionId) {
   const res = await fetch(
     `${API_URL}/documents/${encodeURIComponent(filename)}?session_id=${encodeURIComponent(sessionId)}`,
@@ -85,14 +90,6 @@ export async function fetchChatHistory(filename, sessionId) {
 export async function fetchDashboard(filename, sessionId) {
   const res = await fetch(
     `${API_URL}/dashboard?session_id=${encodeURIComponent(sessionId)}&filename=${encodeURIComponent(filename)}`,
-    { headers: authHeaders() }
-  );
-  return asJson(res);
-}
-
-export async function fetchPlanner(filename, sessionId) {
-  const res = await fetch(
-    `${API_URL}/planner?session_id=${encodeURIComponent(sessionId)}&filename=${encodeURIComponent(filename)}`,
     { headers: authHeaders() }
   );
   return asJson(res);

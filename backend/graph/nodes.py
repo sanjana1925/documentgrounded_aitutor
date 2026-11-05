@@ -22,13 +22,13 @@ logger = logging.getLogger("tutor.graph")
 
 WORKFLOW_OF_INTENT = {
     "qa": "qa", "summary": "guide-mode", "key_points": "guide-mode", "eli5": "guide-mode",
-    "glossary": "guide-mode", "quiz": "quiz", "study_plan": "study-plan", "other": "other",
+    "glossary": "guide-mode", "quiz": "quiz", "other": "other",
 }
 
 TIME_MESSAGE = "I ran out of time before I could verify an answer. Please try again, or ask a narrower question."
 CLARIFY_DEFAULT = "Could you tell me a bit more about what you'd like to know about your document?"
-REJECT_MESSAGE = "I can only help with questions about your uploaded document, quizzes, and study plans."
-FINISH_MESSAGE = "I'm here whenever you want to ask about your document, take a quiz, or plan your studying."
+REJECT_MESSAGE = "I can only help with questions about your uploaded document, and quizzes."
+FINISH_MESSAGE = "I'm here whenever you want to ask about your document, or take a quiz."
 
 
 def scope_of(state: GraphState) -> Scope:
@@ -68,16 +68,6 @@ def guarded(name: str) -> Callable:
         return wrapper
 
     return deco
-
-
-def format_plan(plan: Dict[str, Any]) -> str:
-    lines = [plan.get("general_summary", ""), ""]
-    for i, item in enumerate(plan.get("items", []), start=1):
-        lines.append(
-            f"{i}. **{item['topic']}** ({item['priority']} priority, accuracy {item['accuracy']}) - "
-            f"{item['recommendation']} About {item['estimated_study_time']}. {item['reason']}"
-        )
-    return "\n".join(lines).strip()
 
 
 def build_nodes(deps: Deps) -> Dict[str, Callable]:
@@ -240,13 +230,6 @@ def build_nodes(deps: Deps) -> Dict[str, Callable]:
             "trace": [result["event"]],
         }
 
-    @guarded("study_planner_agent")
-    def study_planner_agent(state: GraphState, config: RunnableConfig) -> Dict[str, Any]:
-        budget = budget_of(config)
-        plan, meta = deps.planner.plan(scope=scope_of(state), budget=budget)
-        annotate(tags=["study-planner"])
-        return {"reply": format_plan(plan), "trace": [meta]}
-
     def respond_other(state: GraphState, config: RunnableConfig) -> Dict[str, Any]:
         d = state.get("decision", {})
         action = d.get("next_action")
@@ -279,7 +262,6 @@ def build_nodes(deps: Deps) -> Dict[str, Callable]:
         "output_guardrail": output_guardrail,
         "guide_agent": guide_agent,
         "quiz_agent": quiz_agent,
-        "study_planner_agent": study_planner_agent,
         "respond_other": respond_other,
         "safe_fallback": safe_fallback,
     }

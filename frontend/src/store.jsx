@@ -1,5 +1,5 @@
-import { createContext, useContext, useEffect, useMemo, useState, useCallback } from "react";
-import { uploadDocument, deleteDocument } from "./lib/api";
+import { createContext, useContext, useEffect, useMemo, useRef, useState, useCallback } from "react";
+import { uploadDocument, deleteDocument, fetchDocuments } from "./lib/api";
 
 const AppContext = createContext(null);
 
@@ -28,6 +28,25 @@ export function AppProvider({ children }) {
   const [currentDocument, setCurrentDocument] = useState(() => loadState(getSessionId()).currentDocument);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
+  const changedSinceMount = useRef(false);
+
+  // The server is the source of truth for which documents exist: drop ones it no longer has, add ones it has.
+  useEffect(() => {
+    let cancelled = false;
+    fetchDocuments(sessionId)
+      .then((data) => {
+        if (cancelled || changedSinceMount.current) return;
+        const names = (data.documents || []).map((d) => d.filename);
+        setDocuments((prev) => Object.fromEntries(names.map((n) => [n, prev[n] || []])));
+        setCurrentDocument((cur) => (cur && names.includes(cur) ? cur : names[0] || null));
+      })
+      .catch(() => {
+        /* offline: keep what this browser has */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionId]);
 
   useEffect(() => {
     localStorage.setItem(`tg_state_${sessionId}`, JSON.stringify({ documents, currentDocument }));
@@ -52,6 +71,7 @@ export function AppProvider({ children }) {
     async (file) => {
       setUploading(true);
       setUploadError("");
+      changedSinceMount.current = true;
       try {
         const data = await uploadDocument(file, sessionId);
         setDocuments((prev) => ({ ...prev, [data.filename]: prev[data.filename] || [] }));
@@ -70,10 +90,13 @@ export function AppProvider({ children }) {
   const removeCurrentDocument = useCallback(async () => {
     if (!currentDocument) return;
     const target = currentDocument;
+    changedSinceMount.current = true;
     try {
       await deleteDocument(target, sessionId);
-    } catch {
-      /* best-effort: still clear it locally even if the API call failed */
+    } catch (err) {
+      // Keep it in the list: forgetting it here while the server still holds it would leave the two out of sync.
+      setUploadError(err.message || "Could not delete the document");
+      return;
     }
     setDocuments((prev) => {
       const next = { ...prev };
