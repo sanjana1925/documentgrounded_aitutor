@@ -21,7 +21,6 @@ from backend.services.evaluation_service import baseline_generate_answer  # noqa
 from backend.services.retrieval_service import Scope  # noqa: E402
 
 logging.basicConfig(level=logging.INFO)
-config.disable_third_party_tracing()
 
 EMBEDDING_MODEL_NAME = config.EMBEDDING_MODEL_NAME
 

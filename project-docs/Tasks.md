@@ -11,7 +11,7 @@ Related: [PRD](PRD.md) · [Architecture](Architecture.md) · [Rules](Rules.md) �
 
 | # | Task | Status | Notes |
 |---|---|---|---|
-| P0-1 | Revoke the LangSmith API key | ⬜ | LangSmith is no longer used, but the key once sat in .env.example, a shareable file. Revoke it in LangSmith and delete it from .env |
+| P0-1 | Revoke the old API key | ⬜ | A key once sat in .env.example, a shareable file. Revoke it and make sure it is only in .env |
 | P0-2 | Finish the full-app audit | 🟡 | Non-AI parts done 2026-09-20 (see findings in F-8 to F-12 and S-7 to S-8). Still to run once the Gemini daily quota resets: real answers, follow-ups, off-topic and injection questions, quick actions, the quiz flow, and the pages with real quiz data |
 | P0-3 | Verify markdown rendering in the browser | ✅ | Bold, italic, nested and numbered lists render correctly, and raw HTML and javascript: links are not rendered |
 

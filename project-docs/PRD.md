@@ -169,7 +169,7 @@ Reading: the agentic design gave closer, better-grounded answers and rescued one
 | Session id is the credential | Data exposure if leaked | Documented, hashed in traces, add real auth before a public launch |
 | Judge and generator share a model family | Optimistic quality scores | Report with a caveat, add an independent judge |
 | Small AI-drafted golden set | Weak evidence for claims | Human review, grow to several documents |
-| Secret hygiene (a LangSmith key once sat in .env.example) | Key exposure | Moved to .env. LangSmith is no longer used: revoke that key (see Tasks.md) |
+| Secret hygiene (an API key once sat in .env.example) | Key exposure | Moved to .env. Revoke the old key (see Tasks.md) |
 | Weak benchmark password | Benchmark data exposed | Use a longer password, add rate limiting before deployment |
 
 ---

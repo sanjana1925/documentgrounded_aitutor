@@ -113,9 +113,6 @@ def main() -> None:
     from dotenv import load_dotenv
 
     load_dotenv(override=True)
-    from backend import config
-
-    config.disable_third_party_tracing()
     container = get_container()
     result = build(container.llm, container.retrieval, Scope(args.session, args.document), args.n)
     Path(args.out).write_text(json.dumps(result["items"], indent=2, ensure_ascii=False), encoding="utf-8")

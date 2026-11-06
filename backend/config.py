@@ -55,13 +55,3 @@ CHAT_RECENT_MESSAGES = 6
 SUMMARY_TRIGGER_MESSAGES = 4  # summarise once this many older, unsummarised messages exist
 SUMMARY_MAX_CHARS = 800
 MAX_STORED_MESSAGE_CHARS = 20000
-
-
-def disable_third_party_tracing() -> None:
-    """
-    This app does not send traces anywhere. LangGraph and LangChain would still send them to a hosted tracing service on
-    their own if the usual tracing variables were set (for example left over in .env), so those variables are removed.
-    Call it right after the .env file is loaded.
-    """
-    for name in ("LANGSMITH_TRACING", "LANGCHAIN_TRACING_V2", "LANGSMITH_API_KEY", "LANGCHAIN_API_KEY", "LANGSMITH_ENDPOINT", "LANGSMITH_PROJECT"):
-        os.environ.pop(name, None)

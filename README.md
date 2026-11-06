@@ -46,7 +46,7 @@ Measured offline with `python evaluate.py`; see [project-docs/Evaluation.md](pro
 <br>
 
 ### 🔍 Observability
-Every answer returns an `agent_trace`: each agent step and decision, the tools used, how many model calls and seconds were spent, and why a request stopped. Nothing is sent to an outside tracing service.
+Every answer returns an `agent_trace`: each agent step and decision, the tools used, how many model calls and seconds were spent, and why a request stopped.
 
 <br>
 

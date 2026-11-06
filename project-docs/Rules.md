@@ -63,7 +63,7 @@ Never use an LLM for quiz scoring, security decisions, isolation filters, counte
 
 1. Keys and passwords live only in .env (git-ignored). .env.example holds placeholders only. Never paste real keys into code, docs, tests, commits, or chat.
 2. If a key touches a shareable file, rotate it.
-3. Nothing is sent to an outside tracing service. Logs carry reason codes, never the text of questions, answers or documents.
+3. Logs carry reason codes, never the text of questions, answers or documents.
 4. Delete means delete. Removing a document removes its chunks, quiz progress, and chat history.
 5. Session ids are credentials here. Do not print them in docs or logs meant for sharing.
 6. Do not write real passwords into documentation. Refer to the variable name (BENCHMARK_PASSWORD) instead.

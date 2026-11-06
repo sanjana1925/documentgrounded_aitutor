@@ -227,11 +227,10 @@ The quiz reply markdown format is parsed by the frontend (lib/parseQuiz.js) and 
 
 11. OBSERVABILITY (agent_trace)
 
-* There is no external tracing service. Every `POST /agent` response carries `agent_trace`: `events` (one entry per agent step, in order: supervisor decision and source, each retrieval attempt with strategy and chunks returned, evidence evaluator verdict, tutor action, critic verdict, guardrail result, fallback reason), `budget` (model calls, tool calls, searches, revisions and seconds used, and the limits) and `stop_reason`.
+* Every `POST /agent` response carries `agent_trace`: `events` (one entry per agent step, in order: supervisor decision and source, each retrieval attempt with strategy and chunks returned, evidence evaluator verdict, tutor action, critic verdict, guardrail result, fallback reason), `budget` (model calls, tool calls, searches, revisions and seconds used, and the limits) and `stop_reason`.
 * The same events drive the evaluation metrics (`evaluation/evaluators.py`), so what a developer reads in a response is what the benchmark counts.
 * Failures stay visible: a stopped or degraded step is recorded in `events` with its reason, never swallowed.
 * Server logs (`logging`) hold provider errors and retries. Reason codes only: question and answer text are never logged by the guardrails.
-* `config.disable_third_party_tracing()` removes the usual hosted-tracing environment variables, so LangGraph and LangChain cannot send anything out on their own even if such variables are left in `.env`.
 
 ---
 
