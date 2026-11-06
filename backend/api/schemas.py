@@ -6,6 +6,7 @@ from pydantic import BaseModel, field_validator
 class IngestResponse(BaseModel):
     filename: str
     chunks_added: int
+    flagged_chunks: int = 0  # passages set aside because they look like instructions aimed at the AI
 
 
 class AgentRequest(BaseModel):

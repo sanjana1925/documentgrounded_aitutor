@@ -3,6 +3,7 @@ import re
 from typing import Tuple
 
 from backend import config
+from backend.guardrails.injection import check_message
 
 MAX_INPUT_LENGTH = 4000
 
@@ -50,7 +51,8 @@ def validate_input(message: str) -> Tuple[bool, str]:
         if re.search(pattern, lowered):
             return False, "Security Alert: Requests for internal instructions are not supported."
 
-    return True, ""
+    # The keyword checks above are cheap but easy to reword around; this adds the structure and meaning checks.
+    return check_message(message)
 
 
 def validate_request_identity(session_id: str, filename: str) -> Tuple[bool, str]:

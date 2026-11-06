@@ -135,6 +135,24 @@ def record_quiz_answer(state: LearnerState, is_correct: bool, topic: str, questi
     }
 
 
+PHASE_GUIDANCE = {
+    "SIMPLE": "Generate a SIMPLE question testing basic recall, definitions, or fundamental terms directly stated in the document.",
+    "MEDIUM": "Generate a MEDIUM question testing conceptual understanding, application, or relationships between concepts.",
+    "HIGH": "Generate a HIGH difficulty question testing multi-step reasoning, critical analysis, or complex scenario application.",
+}
+QUIZ_JSON_INSTRUCTION = (
+    "Return ONLY a JSON object with this exact schema:\n"
+    "{\n"
+    '  "question": "string",\n'
+    '  "options": ["option 0", "option 1", "option 2", "option 3"],\n'
+    '  "correct_answer_index": integer (0 to 3),\n'
+    '  "topic": "string (main topic/concept name)",\n'
+    '  "difficulty": "simple" | "medium" | "high",\n'
+    '  "explanation": "short explanation referencing the document"\n'
+    "}"
+)
+
+
 def build_quiz_prompt(phase: str, context: str, weak_topics: List[str], asked_questions: List[str]) -> str:
     """Builds the instruction prompt for generating a grounded quiz question."""
     weak_note = ""
@@ -146,23 +164,11 @@ def build_quiz_prompt(phase: str, context: str, weak_topics: List[str], asked_qu
         recent = asked_questions[-10:]
         asked_note = f"\nDo NOT repeat or duplicate these previous questions:\n" + "\n".join(f"- {q}" for q in recent)
 
-    phase_guidance = {
-        "SIMPLE": "Generate a SIMPLE question testing basic recall, definitions, or fundamental terms directly stated in the document.",
-        "MEDIUM": "Generate a MEDIUM question testing conceptual understanding, application, or relationships between concepts.",
-        "HIGH": "Generate a HIGH difficulty question testing multi-step reasoning, critical analysis, or complex scenario application.",
-    }.get(phase, "Generate a simple recall question.")
+    phase_guidance = PHASE_GUIDANCE.get(phase, "Generate a simple recall question.")
 
     return (
         f"Document Excerpts:\n{context}\n\n"
         f"Difficulty Level: {phase}\n"
         f"Guidance: {phase_guidance}{weak_note}{asked_note}\n\n"
-        "Return ONLY a JSON object with this exact schema:\n"
-        "{\n"
-        '  "question": "string",\n'
-        '  "options": ["option 0", "option 1", "option 2", "option 3"],\n'
-        '  "correct_answer_index": integer (0 to 3),\n'
-        '  "topic": "string (main topic/concept name)",\n'
-        '  "difficulty": "simple" | "medium" | "high",\n'
-        '  "explanation": "short explanation referencing the document"\n'
-        "}"
+        + QUIZ_JSON_INSTRUCTION
     )

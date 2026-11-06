@@ -17,6 +17,7 @@ from backend.services.llm_service import LLM
 from backend.services.quiz_service import normalize as norm_text
 from backend.services.retrieval_service import Scope
 from backend.tools.base import ToolContext, ToolRegistry
+from backend.guardrails.leak import protect
 
 RETRIEVAL_AGENT_TOOLS = [
     "get_document_metadata",
@@ -219,3 +220,7 @@ class EvidenceEvaluator:
         elif e.recommended_action == "use_evidence":
             e.recommended_action = "retrieve_again" if e.relevant else "rewrite_query"
         return e
+
+
+# The leak check compares answers with these real prompts, so it cannot drift from them.
+protect(RETRIEVAL_SYSTEM, EVALUATOR_SYSTEM)

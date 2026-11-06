@@ -194,6 +194,12 @@ export default function EvaluationPage() {
         </section>
       )}
 
+      {unlocked && !sys && (
+        <p className="text-sm text-muted-fg mt-6">
+          No benchmark report yet. Run <code>python evaluate.py</code> to measure retrieval and answer quality on a verified question set.
+        </p>
+      )}
+
       {unlocked && sys && (
         <section className="border-t-2 border-border pt-6">
           <button
@@ -223,7 +229,7 @@ export default function EvaluationPage() {
                     ["Answer Similarity", sys.avg_answer_similarity, "Embedding similarity to the reference answer"],
                     ["Groundedness", sys.avg_groundedness_score, "Word overlap with the evidence the system used"],
                     ["Groundedness (equal evidence)", sys.avg_groundedness_shared, "Same overlap, but against the same top-k evidence for every system"],
-                    ["Faithfulness (LLM judge)", sys.avg_faithfulness_llm_judge, "A model scores whether every claim is supported. Only present when the run used --judge"],
+                    ["Faithfulness (LLM judge)", sys.avg_faithfulness_llm_judge == null ? null : `${sys.avg_faithfulness_llm_judge} (${sys.num_faithfulness_scored ?? "?"} of ${sys.num_answered} judged)`, "A model scores whether every claim is supported. Only present when the run used --judge"],
                   ]}
                 />
                 <MetricGroup

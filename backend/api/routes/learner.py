@@ -2,14 +2,12 @@
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException
-from langsmith import traceable
 
 from backend.api.security import require_benchmark_password
 from backend.budget import Budget
 from backend.container import Container, get_container
 from backend.evaluation.report import load_report
 from backend.guardrails.input import validate_request_identity
-from backend.observability.langsmith import request_metadata
 from backend.services.retrieval_service import Scope
 
 router = APIRouter()

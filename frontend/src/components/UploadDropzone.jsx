@@ -3,7 +3,7 @@ import { FileText, UploadCloud } from "lucide-react";
 import { PrimaryButton } from "./Button";
 import { DecoDots } from "./DecorativeShapes";
 
-export default function UploadDropzone({ onFile, uploading, error }) {
+export default function UploadDropzone({ onFile, uploading, error, notice }) {
   const inputRef = useRef(null);
   const [dragging, setDragging] = useState(false);
 
@@ -50,6 +50,7 @@ export default function UploadDropzone({ onFile, uploading, error }) {
           onChange={(e) => handleFiles(e.target.files)}
         />
         {error && <p className="text-pink font-semibold text-sm">{error}</p>}
+        {notice && !error && <p className="text-muted-fg font-semibold text-sm max-w-md">{notice}</p>}
       </div>
     </div>
   );

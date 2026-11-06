@@ -7,10 +7,11 @@ then made by `decide()` in Python so the loop can never exceed its revision and 
 """
 from typing import Any, Dict, List, Optional, Tuple
 
-from backend.agents.common import format_chunks
+from backend.agents.common import format_chunks, UNTRUSTED_EXCERPTS
 from backend.agents.schemas import CriticEvaluation
 from backend.budget import Budget, BudgetExceeded
 from backend.services.llm_service import LLM
+from backend.guardrails.leak import protect
 
 CRITIC_SYSTEM = (
     "You are a strict reviewer of a tutor's answer. Judge it ONLY against the evidence excerpts. "
@@ -21,6 +22,7 @@ CRITIC_SYSTEM = (
     "answer is good; revise if it can be fixed using the existing excerpts; retrieve_again if the excerpts "
     "themselves lack something the question needs."
 )
+CRITIC_SYSTEM = f"{CRITIC_SYSTEM} {UNTRUSTED_EXCERPTS}"
 
 
 class CriticAgent:
@@ -64,3 +66,7 @@ class CriticAgent:
         if not e.relevant:
             parts.append("The answer does not address the question.")
         return "\n".join(parts) or "Improve completeness and grounding."
+
+
+# The leak check compares answers with these real prompts, so it cannot drift from them.
+protect(CRITIC_SYSTEM)

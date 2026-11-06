@@ -12,6 +12,7 @@ from backend.agents.common import format_history
 from backend.agents.schemas import SupervisorDecision
 from backend.budget import Budget, BudgetExceeded
 from backend.services.llm_service import LLM
+from backend.guardrails.leak import protect
 
 SUPERVISOR_SYSTEM = (
     "You are the supervisor of a document-grounded AI study tutor. You decide what should happen "
@@ -117,3 +118,7 @@ class SupervisorAgent:
             # Safe default when the model cannot produce a valid decision: treat it as a document question.
             return _deterministic("qa", message, "supervisor fallback: model returned no valid decision"), "fallback"
         return normalize(decision, message), "llm"
+
+
+# The leak check compares answers with these real prompts, so it cannot drift from them.
+protect(SUPERVISOR_SYSTEM)

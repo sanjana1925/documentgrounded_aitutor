@@ -1,6 +1,7 @@
 import hashlib
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi.concurrency import run_in_threadpool
 
 from backend.api.schemas import IngestResponse
 from backend.api.security import require_api_key
@@ -42,15 +43,16 @@ async def upload_pdf(
     existing, existing_hash = c.retrieval.get_records(scope)
     has_pages = any(ch["page"] is not None for ch in existing)
     if existing and existing_hash == content_hash and has_pages:
-        return IngestResponse(filename=name, chunks_added=len(existing))
+        return IngestResponse(filename=name, chunks_added=len(existing), flagged_chunks=c.retrieval.count_flagged(scope))
     # The same file under another name is the same document: point the browser at the existing copy.
     duplicate = c.retrieval.find_by_hash(session_id, content_hash)
     if duplicate and duplicate != name:
-        return IngestResponse(filename=duplicate, chunks_added=c.retrieval.count(Scope(session_id, duplicate)))
+        dup_scope = Scope(session_id, duplicate)
+        return IngestResponse(filename=duplicate, chunks_added=c.retrieval.count(dup_scope), flagged_chunks=c.retrieval.count_flagged(dup_scope))
 
     # A changed file, or an older index without page numbers, is re-indexed; index_pdf replaces the old copy.
     try:
-        added = c.retrieval.index_pdf(scope, pdf_bytes, content_hash)
+        added = await run_in_threadpool(c.retrieval.index_pdf, scope, pdf_bytes, content_hash)  # embedding is CPU work
     except IngestionError as exc:  # not a PDF, encrypted, or no extractable text: a client error with a clear reason
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:  # noqa: BLE001 - any other failure while reading a corrupt PDF is also a client error
@@ -59,7 +61,7 @@ async def upload_pdf(
         # New content under an old name: quiz progress and chat citations about the old text would be stale.
         c.learner.reset(scope)
         c.chat.delete_for_document(session_id, name)
-    return IngestResponse(filename=name, chunks_added=added)
+    return IngestResponse(filename=name, chunks_added=added, flagged_chunks=c.retrieval.count_flagged(scope))
 
 
 @router.get("/documents")

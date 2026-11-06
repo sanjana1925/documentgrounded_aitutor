@@ -5,6 +5,7 @@ from typing import List
 
 from dotenv import load_dotenv
 from fastapi import FastAPI
+from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 
 load_dotenv(override=True)
@@ -15,12 +16,12 @@ from backend.api.routes import chat as chat_routes  # noqa: E402
 from backend.api.routes import documents as document_routes  # noqa: E402
 from backend.api.routes import learner as learner_routes  # noqa: E402
 from backend.container import get_container  # noqa: E402
-from backend.observability.langsmith import configure_tracing  # noqa: E402
+from backend.guardrails.injection import warm_up as warm_up_injection_check  # noqa: E402
 from backend.services.evaluation_service import baseline_generate_answer  # noqa: E402
 from backend.services.retrieval_service import Scope  # noqa: E402
 
 logging.basicConfig(level=logging.INFO)
-TRACING = configure_tracing()
+config.disable_third_party_tracing()
 
 EMBEDDING_MODEL_NAME = config.EMBEDDING_MODEL_NAME
 
@@ -28,6 +29,7 @@ EMBEDDING_MODEL_NAME = config.EMBEDDING_MODEL_NAME
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     get_container()  # build the vector store / model clients once, at startup
+    await run_in_threadpool(warm_up_injection_check)  # load the sentence model so the first message is not slow
     yield
 
 

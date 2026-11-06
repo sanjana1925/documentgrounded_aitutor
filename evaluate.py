@@ -3,7 +3,6 @@ Evaluation harness: baseline RAG vs agentic RAG on a verified golden dataset.
 
     python evaluate.py --dataset golden_dataset_chem.json --session <session_id> --document chem.pdf --arm both
     python evaluate.py ... --judge        # also run LLM-as-judge faithfulness / relevancy (extra LLM calls)
-    python evaluate.py ... --langsmith    # also create LangSmith dataset + one experiment per arm
 
 Only examples that verify against the indexed document are scored. If none do, nothing is written and the
 metrics stay "Not evaluated yet" - numbers are never guessed. Results go to evaluation_report.json (schema v2).
@@ -21,7 +20,6 @@ from google import genai
 from backend import config
 from backend.container import get_container
 from backend.evaluation.dataset import load_dataset, split_verified
-from backend.evaluation.langsmith_experiment import run_experiments
 from backend.evaluation.report import save_report
 from backend.services.evaluation_service import EvaluationService, build_report, default_embedder
 from backend.services.llm_service import GeminiLLM
@@ -35,10 +33,9 @@ def main() -> int:
     parser.add_argument("--document", help="document name (defaults to the dataset's source_document)")
     parser.add_argument("--arm", choices=["baseline", "agentic", "both"], default="both")
     parser.add_argument("--judge", action="store_true", help="add LLM-as-judge faithfulness and relevancy")
+    parser.add_argument("--judge-relevancy", action="store_true", help="with --judge, also score answer relevancy (one more judge call per answer)")
+    parser.add_argument("--judge-pause", type=float, default=0.0, help="seconds to wait before each judge call (use for models with low per-minute quotas)")
     parser.add_argument("--judge-model", default="", help="Gemini model that scores faithfulness (default: the answering model, i.e. self-judging)")
-    parser.add_argument("--langsmith", action="store_true", help="also run LangSmith experiments")
-    parser.add_argument("--langsmith-only", action="store_true", help="skip the local run/report and only run LangSmith experiments")
-    parser.add_argument("--prefix", default="tutor-eval")
     parser.add_argument("--pause", type=float, default=3.0, help="seconds between questions (rate limits)")
     parser.add_argument("--retries", type=int, default=2, help="retries per question on provider errors such as 429")
     parser.add_argument("--backoff", type=float, default=15.0, help="seconds to wait before the first retry (grows each retry)")
@@ -69,10 +66,11 @@ def main() -> int:
     if args.judge:
         judge_name = args.judge_model or config.ANSWER_MODEL
         print(f"LLM judge: {judge_name}" + ("  (same model that writes the answers: scores may be flattering; use --judge-model)" if not args.judge_model else ""))
-    service = EvaluationService(container.llm, container.retrieval, container.graph, default_embedder(), judge_llm=judge_llm)
+    service = EvaluationService(container.llm, container.retrieval, container.graph, default_embedder(), judge_llm=judge_llm,
+                                judge_relevancy=args.judge_relevancy, judge_pause=args.judge_pause)
     arms = {"baseline": ["baseline_rag"], "agentic": ["agentic_rag"], "both": ["baseline_rag", "agentic_rag"]}[args.arm]
     results = {}
-    for arm in ([] if args.langsmith_only else arms):
+    for arm in arms:
         print(f"\n=== {arm} ===")
 
         def show(row):
@@ -102,12 +100,6 @@ def main() -> int:
             for key, c in report["comparison"].items():
                 print(f"  {key}: baseline={c['baseline']} agentic={c['agentic']} delta={c['delta']}")
 
-    if args.langsmith or args.langsmith_only:
-        outcome = run_experiments(
-            service, scope, verified, arms, args.prefix, judge=args.judge, pause=args.pause,
-            retries=args.retries, backoff=args.backoff, judge_pause=args.pause / 2,
-        )
-        print("\nLangSmith:", json.dumps(outcome, indent=2))
     return 0
 
 

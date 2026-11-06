@@ -28,6 +28,7 @@ export function AppProvider({ children }) {
   const [currentDocument, setCurrentDocument] = useState(() => loadState(getSessionId()).currentDocument);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
+  const [uploadNotice, setUploadNotice] = useState("");
   const changedSinceMount = useRef(false);
 
   // The server is the source of truth for which documents exist: drop ones it no longer has, add ones it has.
@@ -71,9 +72,14 @@ export function AppProvider({ children }) {
     async (file) => {
       setUploading(true);
       setUploadError("");
+      setUploadNotice("");
       changedSinceMount.current = true;
       try {
         const data = await uploadDocument(file, sessionId);
+        if (data.flagged_chunks > 0) {
+          const n = data.flagged_chunks;
+          setUploadNotice(`${n} passage${n === 1 ? "" : "s"} in this document read like instructions aimed at an AI, so ${n === 1 ? "it was" : "they were"} left out of the tutor's answers.`);
+        }
         setDocuments((prev) => ({ ...prev, [data.filename]: prev[data.filename] || [] }));
         setCurrentDocument(data.filename);
         return data;
@@ -122,10 +128,11 @@ export function AppProvider({ children }) {
       upload,
       uploading,
       uploadError,
+      uploadNotice,
       removeCurrentDocument,
       documentNames: Object.keys(documents),
     }),
-    [sessionId, documents, currentDocument, addMessage, removeLastMessage, setMessages, upload, uploading, uploadError, removeCurrentDocument]
+    [sessionId, documents, currentDocument, addMessage, removeLastMessage, setMessages, upload, uploading, uploadError, uploadNotice, removeCurrentDocument]
   );
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

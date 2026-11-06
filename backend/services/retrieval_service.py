@@ -3,11 +3,15 @@ ChromaDB access. This is the ONLY module that touches the vector store, and ever
 requires a `Scope` (session + document). Isolation filters are built here, in Python - the LLM
 never supplies or influences them.
 """
+import logging
 import uuid
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
 
+from backend.guardrails.injection import analyze_many
 from backend.ingestion import chunk_pdf
+
+logger = logging.getLogger("tutor.retrieval")
 
 Chunk = Dict[str, Any]  # {"chunk_index": int, "text": str, "page": Optional[int], "distance": Optional[float]}
 
@@ -37,6 +41,8 @@ class RetrievalService:
     def _to_chunks(documents, metadatas, distances=None) -> List[Chunk]:
         chunks: List[Chunk] = []
         for i, (doc, meta) in enumerate(zip(documents or [], metadatas or [])):
+            if meta.get("injection_flagged"):
+                continue  # text that tries to instruct the AI is kept out of every answer
             page = meta.get("page")
             chunks.append(
                 {
@@ -78,6 +84,10 @@ class RetrievalService:
                 d["num_pages"] = max(d["num_pages"] or 0, int(m["page"]))
         return sorted(docs.values(), key=lambda d: d["filename"].lower())
 
+    def count_flagged(self, scope: Scope) -> int:
+        """How many passages of this document were set aside as prompt injection."""
+        return len(self._collection.get(where=self._where(scope, {"injection_flagged": True}), include=[]).get("ids") or [])
+
     def get_texts(self, scope: Scope) -> List[str]:
         chunks, _ = self.get_records(scope)
         return [c["text"] for c in chunks]
@@ -104,7 +114,7 @@ class RetrievalService:
         total = self.count(scope)
         if total == 0:
             return []
-        n = min(top_k + (1 if exclude_index is not None else 0), total)
+        n = min(top_k + (1 if exclude_index is not None else 0) + 6, total)  # a few spare, in case some are set aside
         res = self._collection.query(
             query_texts=[query], n_results=n, where=self._where(scope), include=["documents", "metadatas", "distances"]
         )
@@ -140,6 +150,11 @@ class RetrievalService:
         """Chunk page by page (every chunk keeps its page number) and index, replacing any earlier copy. Raises IngestionError
         when the PDF is unreadable, encrypted, or has no extractable text. Returns chunks added."""
         chunks = chunk_pdf(pdf_bytes, self._splitter)  # a bad PDF raises here, before anything is touched
+        try:
+            verdicts = analyze_many([c.text for c in chunks], source="document")
+        except Exception:  # noqa: BLE001 - a failing scan must not make uploads fail
+            logger.warning("document scan for prompt injection failed; indexing without it", exc_info=True)
+            verdicts = [None] * len(chunks)
         old_ids = self._collection.get(where=self._where(scope), include=[]).get("ids") or []
         self._collection.add(
             documents=[c.text for c in chunks],
@@ -151,8 +166,10 @@ class RetrievalService:
                     "chunk_index": c.index,
                     "content_hash": content_hash,
                     "page": c.page,
+                    "injection_flagged": bool(v and v.blocked),
+                    "injection_risk": float(v.risk) if v else 0.0,
                 }
-                for c in chunks
+                for c, v in zip(chunks, verdicts)
             ],
         )
         if old_ids:  # replace only after the new copy is stored, so a failed add keeps the old one

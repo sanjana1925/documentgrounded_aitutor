@@ -7,11 +7,12 @@ that an answer cites chunks that were actually retrieved, and that it passes the
 """
 from typing import Any, Dict, List, Optional, Tuple
 
-from backend.agents.common import format_chunks, format_history
+from backend.agents.common import format_chunks, format_history, UNTRUSTED_EXCERPTS
 from backend.agents.schemas import TutorOutput
 from backend.budget import Budget, BudgetExceeded
 from backend.guardrails.output import validate_answer
 from backend.services.llm_service import LLM
+from backend.guardrails.leak import protect
 
 STYLE_GUIDE = {
     "normal": "Explain clearly like a patient tutor: define key terms, elaborate, and use a short analogy or example when it helps.",
@@ -32,6 +33,7 @@ TUTOR_SYSTEM = (
     "- action=insufficient_evidence: the excerpts do not contain the information; do not guess.\n"
     "Follow the requested explanation style. You may add one short `follow_up_question` to check understanding."
 )
+TUTOR_SYSTEM = f"{TUTOR_SYSTEM} {UNTRUSTED_EXCERPTS}"
 
 
 class TutorAgent:
@@ -76,4 +78,9 @@ class TutorAgent:
             return True, ""
         if not output.used_chunk_indices:
             return False, "answer must cite at least one evidence chunk in used_chunk_indices"
-        return validate_answer(output.answer, [c["chunk_index"] for c in evidence], output.used_chunk_indices)
+        return validate_answer(output.answer, [c["chunk_index"] for c in evidence], output.used_chunk_indices, [c["text"] for c in evidence])
+
+
+# The leak check compares answers with these real prompts, so it cannot drift from them.
+protect(TUTOR_SYSTEM)
+protect(*STYLE_GUIDE.values(), rules=False)

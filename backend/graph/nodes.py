@@ -1,7 +1,6 @@
 """
-LangGraph nodes. Node KEYS are the agent names (supervisor_agent, retrieval_agent, ...), so
-LangSmith shows meaningfully named runs. Nodes are thin: each calls one agent, records a trace
-event, and returns a partial state update. All routing/limit decisions live in workflow.py.
+LangGraph nodes. Node KEYS are the agent names (supervisor_agent, retrieval_agent, ...). Nodes are thin:
+each calls one agent, records a trace event, and returns a partial state update. All routing/limit decisions live in workflow.py.
 """
 import functools
 import logging
@@ -13,17 +12,11 @@ from backend.budget import Budget, BudgetExceeded
 from backend.graph.state import Deps, GraphState
 from backend.guardrails.output import validate_answer
 from backend.guardrails.retrieval import get_grounding_fallback
-from backend.observability.langsmith import annotate, annotate_root
 from backend.services.llm_service import LLMError
 from backend.services.retrieval_service import Scope
 from backend.tools.base import ToolContext
 
 logger = logging.getLogger("tutor.graph")
-
-WORKFLOW_OF_INTENT = {
-    "qa": "qa", "summary": "guide-mode", "key_points": "guide-mode", "eli5": "guide-mode",
-    "glossary": "guide-mode", "quiz": "quiz", "other": "other",
-}
 
 TIME_MESSAGE = "I ran out of time before I could verify an answer. Please try again, or ask a narrower question."
 CLARIFY_DEFAULT = "Could you tell me a bit more about what you'd like to know about your document?"
@@ -47,14 +40,10 @@ def guarded(name: str) -> Callable:
         def wrapper(state: GraphState, config: RunnableConfig) -> Dict[str, Any]:
             try:
                 result = fn(state, config)
-                if str(result.get("stop_reason", "")).endswith("budget_exceeded"):
-                    annotate(metadata={"stop_reason": result["stop_reason"]}, tags=["budget-exceeded"])
                 return result
             except BudgetExceeded as exc:
-                annotate(metadata={"stop_reason": exc.reason}, tags=["budget-exceeded"])
                 return {"stop_reason": exc.reason, "trace": [{"step": name, "error": exc.reason}]}
             except LLMError as exc:
-                annotate(metadata={"stop_reason": "llm_error", "llm_status": exc.status_code}, tags=["llm-error"])
                 return {
                     "stop_reason": "llm_error",
                     "llm_error": {"status": exc.status_code, "detail": exc.detail},
@@ -62,7 +51,6 @@ def guarded(name: str) -> Callable:
                 }
             except Exception as exc:  # noqa: BLE001
                 logger.exception("node %s failed", name)
-                annotate(metadata={"stop_reason": "internal_error", "error_type": type(exc).__name__}, tags=["error"])
                 return {"stop_reason": "internal_error", "trace": [{"step": name, "error": type(exc).__name__}]}
 
         return wrapper
@@ -82,10 +70,6 @@ def build_nodes(deps: Deps) -> Dict[str, Callable]:
             budget=budget,
             summary=state.get("conversation_summary", ""),
         )
-        workflow = WORKFLOW_OF_INTENT[decision.intent]
-        tags = [f"workflow:{workflow}", f"intent:{decision.intent}"] + (["rag"] if decision.intent == "qa" else [])
-        annotate_root(metadata={"intent": decision.intent, "workflow_type": workflow, "decision_source": source}, tags=tags)
-        annotate(metadata={"intent": decision.intent, "decision_source": source, "confidence": decision.confidence})
         return {
             "decision": decision.model_dump(),
             "standalone_query": decision.standalone_query[:1000],
@@ -96,7 +80,6 @@ def build_nodes(deps: Deps) -> Dict[str, Callable]:
     @guarded("retrieval_agent")
     def retrieval_agent(state: GraphState, config: RunnableConfig) -> Dict[str, Any]:
         budget = budget_of(config)
-        annotate(metadata={"retrieval_attempt": budget.retrieval_attempts + 1}, tags=["retrieval"])
         return deps.retrieval_agent.step(
             scope=scope_of(state),
             budget=budget,
@@ -109,9 +92,7 @@ def build_nodes(deps: Deps) -> Dict[str, Callable]:
     @guarded("evidence_evaluator")
     def evidence_evaluator(state: GraphState, config: RunnableConfig) -> Dict[str, Any]:
         budget = budget_of(config)
-        annotate(metadata={"retrieval_attempt": budget.retrieval_attempts}, tags=["retrieval"])
         evaluation, source = deps.evaluator.evaluate(question=state["standalone_query"], evidence=state.get("evidence", []), budget=budget)
-        annotate(metadata={"evidence_coverage": evaluation.coverage, "evidence_action": evaluation.recommended_action})
         return {
             "last_eval": evaluation.model_dump(),
             "trace": [{"step": "evidence_evaluator", "source": source, **evaluation.model_dump()}],
@@ -120,7 +101,6 @@ def build_nodes(deps: Deps) -> Dict[str, Callable]:
     @guarded("tutor_agent")
     def tutor_agent(state: GraphState, config: RunnableConfig) -> Dict[str, Any]:
         budget = budget_of(config)
-        annotate(metadata={"revision_attempt": budget.revisions}, tags=["revision"] if budget.revisions else [])
         decision = state.get("decision", {})
         evidence = state.get("evidence", [])
         out = deps.tutor.write(
@@ -174,8 +154,7 @@ def build_nodes(deps: Deps) -> Dict[str, Callable]:
         review, source = deps.critic.review(question=state["standalone_query"], evidence=state.get("evidence", []), answer=draft["answer"], budget=budget)
         if review is None:
             # The critic could not run (budget/invalid output). The tutor already cited real chunks and the
-            # evidence evaluator approved the evidence, so the draft is accepted - and flagged in the trace.
-            annotate(tags=["critic-unavailable"])
+            # evidence evaluator approved the evidence, so the draft is accepted - and recorded in the trace events.
             return {"critic_action": "finish", "trace": [{"step": "critic_agent", "source": source, "action": "finish", "reason": "critic unavailable"}]}
         action, reason = deps.critic.decide(review, budget)
         update: Dict[str, Any] = {"critic": review.model_dump(), "critic_action": action}
@@ -184,10 +163,6 @@ def build_nodes(deps: Deps) -> Dict[str, Callable]:
             update["critic_feedback"] = deps.critic.feedback_text(review)
             if action == "retrieve_again":
                 update["last_eval"] = {**(state.get("last_eval") or {}), "missing_information": review.missing_information, "suggested_query": ""}
-        annotate(metadata={
-            "critic_action": action, "revision_attempt": budget.revisions, "critic_grounded": review.grounded,
-            "critic_complete": review.complete, "critic_unsupported_claims": len(review.unsupported_claims),
-        })
         update["trace"] = [{"step": "critic_agent", "source": source, "action": action, "reason": reason, **review.model_dump()}]
         return update
 
@@ -195,7 +170,8 @@ def build_nodes(deps: Deps) -> Dict[str, Callable]:
     def output_guardrail(state: GraphState, config: RunnableConfig) -> Dict[str, Any]:
         draft = state["draft"]
         evidence = state.get("evidence", [])
-        ok, reason = validate_answer(draft["answer"], [c["chunk_index"] for c in evidence], draft.get("used_chunk_indices", []))
+        allowed = [c["text"] for c in evidence] + [state.get("standalone_query", ""), state.get("message", "")]
+        ok, reason = validate_answer(draft["answer"], [c["chunk_index"] for c in evidence], draft.get("used_chunk_indices", []), allowed, deep=True)
         if not ok:
             return {"stop_reason": "output_guardrail_failed", "trace": [{"step": "output_guardrail", "passed": False, "reason": reason}]}
         cited = set(draft.get("used_chunk_indices", []))
@@ -223,7 +199,6 @@ def build_nodes(deps: Deps) -> Dict[str, Callable]:
     def quiz_agent(state: GraphState, config: RunnableConfig) -> Dict[str, Any]:
         budget = budget_of(config)
         learner = deps.learner.get(scope_of(state))
-        annotate(metadata={"quiz_phase": learner.current_phase, "difficulty": learner.current_phase.lower()}, tags=["quiz"])
         result = deps.quiz.take_turn(scope=scope_of(state), message=state["message"], budget=budget)
         return {
             "reply": result["reply"],
@@ -248,7 +223,6 @@ def build_nodes(deps: Deps) -> Dict[str, Callable]:
         budget = budget_of(config)
         reason = state.get("stop_reason") or ("time_budget_exceeded" if budget.expired() else "evidence_not_supported")
         time_related = reason in ("time_budget_exceeded", "llm_call_budget_exceeded", "tool_call_budget_exceeded")
-        annotate(metadata={"stop_reason": reason}, tags=["fallback"])
         return {
             "reply": TIME_MESSAGE if time_related else get_grounding_fallback(),
             "retrieved_chunks": [],

@@ -46,10 +46,13 @@ def default_embedder() -> Embedder:
 
 
 class EvaluationService:
-    def __init__(self, llm, retrieval: RetrievalService, graph, embed: Embedder, top_k: int = config.QA_TOP_K, judge_llm=None):
+    def __init__(self, llm, retrieval: RetrievalService, graph, embed: Embedder, top_k: int = config.QA_TOP_K, judge_llm=None,
+                 judge_relevancy: bool = False, judge_pause: float = 0.0):
         self.llm, self.retrieval, self.graph, self.embed, self.top_k = llm, retrieval, graph, embed, top_k
         # The model that scores faithfulness. Defaults to the answering model; a different one avoids self-judging.
         self.judge_llm = judge_llm or llm
+        self.judge_relevancy = judge_relevancy  # answer relevancy is rarely used, so it is opt-in (one fewer call per answer)
+        self.judge_pause = judge_pause  # seconds between judge calls, for models with low per-minute quotas
 
     # ---- arms -------------------------------------------------------------
     def run_baseline(self, scope: Scope, question: str) -> Dict[str, Any]:
@@ -128,8 +131,14 @@ class EvaluationService:
             gs = ev.lexical_groundedness(out["answer"], shared)
             row["groundedness_shared"] = round(gs, 3) if gs is not None else None
             if judge:
+                if self.judge_pause:
+                    time.sleep(self.judge_pause)
                 f = ev.llm_judge(self.judge_llm, "faithfulness", item["question"], out["answer"], out["evidence_texts"])
-                r = ev.llm_judge(self.judge_llm, "answer_relevancy", item["question"], out["answer"], out["evidence_texts"])
+                r = None
+                if self.judge_relevancy:
+                    if self.judge_pause:
+                        time.sleep(self.judge_pause)
+                    r = ev.llm_judge(self.judge_llm, "answer_relevancy", item["question"], out["answer"], out["evidence_texts"])
                 # Same evidence as the baseline saw: reuse the score when it is literally the same text, else judge again.
                 fs = f if shared == out["evidence_texts"] else ev.llm_judge(self.judge_llm, "faithfulness", item["question"], out["answer"], shared)
                 row["faithfulness"] = round(f, 3) if f is not None else None
@@ -211,6 +220,8 @@ def aggregate(all_rows: List[Dict[str, Any]], top_k: int = config.QA_TOP_K) -> D
         "num_errored_excluded": len(all_rows) - n,
         # Similarity / groundedness / faithfulness are averaged over answered questions only; this is that n.
         "num_answered": sum(1 for r in rows if not r["abstained"]),
+        # Answers the judge actually scored. Lower than num_answered means some judge calls failed (rate limit, outage).
+        "num_faithfulness_scored": sum(1 for r in rows if r.get("faithfulness") is not None),
         "top_k": top_k,
         **metrics,
         "not_evaluated": sorted(k for k, v in metrics.items() if v is None),

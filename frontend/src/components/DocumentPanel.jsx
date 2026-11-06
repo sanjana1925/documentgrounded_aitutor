@@ -4,7 +4,7 @@ import UploadDropzone from "./UploadDropzone";
 import { SecondaryButton } from "./Button";
 
 export default function DocumentPanel({ onClose }) {
-  const { documentNames, currentDocument, setCurrentDocument, upload, uploading, uploadError, removeCurrentDocument } =
+  const { documentNames, currentDocument, setCurrentDocument, upload, uploading, uploadError, uploadNotice, removeCurrentDocument } =
     useApp();
 
   return (
@@ -27,6 +27,7 @@ export default function DocumentPanel({ onClose }) {
         <UploadDropzone
           uploading={uploading}
           error={uploadError}
+          notice={uploadNotice}
           onFile={async (file) => {
             try {
               await upload(file);

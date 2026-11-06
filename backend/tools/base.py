@@ -2,14 +2,12 @@
 Tool layer shared by all agents.
 
 Every tool has typed, validated input (extra fields forbidden - a model can never pass a
-session/document id), a typed ToolResult, budget accounting, error handling, and shows up in
-LangSmith as a `tool` run named after the tool. Agents only get the tools on their allowlist.
+session/document id), a typed ToolResult, budget accounting, and error handling. Agents only get the tools on their allowlist.
 """
 import logging
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, Iterable, List, Type
 
-from langsmith import traceable
 from pydantic import BaseModel, ConfigDict, ValidationError
 
 from backend.budget import Budget, BudgetExceeded
@@ -82,7 +80,7 @@ class ToolRegistry:
             return spec.fn(ctx, args).model_dump()
 
         try:
-            out = traceable(name=spec.name, run_type="tool", tags=["tool"])(_execute)(args.model_dump())
+            out = _execute(args.model_dump())
             return ToolResult.model_validate(out)
         except Exception as exc:  # noqa: BLE001 - a failing tool is an observation, not a crash
             logger.warning("tool %s failed: %s", name, type(exc).__name__)

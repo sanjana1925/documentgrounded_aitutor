@@ -1,25 +1,29 @@
 """Output guardrails - deterministic checks applied to generated content."""
-from typing import Any, Dict, Iterable, Optional, Tuple
+from typing import Any, Dict, Iterable, Optional, Sequence, Tuple
+
+from backend.guardrails.leak import check_leak
 
 MAX_ANSWER_LENGTH = 8000
 
-# Fragments of our own system instructions; an answer containing them is a leak.
-_LEAK_MARKERS = (
-    "you are a friendly, patient ai tutor",
-    "stay strictly grounded in the context",
-    "classify the user's latest message",
-    "you judge whether retrieved",
-)
 
-
-def validate_answer(answer: str, evidence_indices: Optional[Iterable[int]] = None, cited: Optional[Iterable[int]] = None) -> Tuple[bool, str]:
+def validate_answer(
+    answer: str,
+    evidence_indices: Optional[Iterable[int]] = None,
+    cited: Optional[Iterable[int]] = None,
+    context: Sequence[str] = (),
+    deep: bool = False,
+) -> Tuple[bool, str]:
+    """
+    `context` is what the answer may legitimately repeat (the question and the retrieved text); the leak check compares
+    the answer with the tutor's real prompts and ignores anything found there. `deep` also catches paraphrases.
+    """
     if not answer or not answer.strip():
         return False, "empty answer"
     if len(answer) > MAX_ANSWER_LENGTH:
         return False, "answer too long"
-    lowered = answer.lower()
-    if any(marker in lowered for marker in _LEAK_MARKERS):
-        return False, "answer exposes internal instructions"
+    leaked, how = check_leak(answer, context, deep)
+    if leaked:
+        return False, f"answer exposes internal instructions ({how})"
     if evidence_indices is not None and cited is not None:
         allowed = set(evidence_indices)
         bad = [c for c in cited if c not in allowed]

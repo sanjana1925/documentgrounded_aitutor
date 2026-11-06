@@ -90,7 +90,7 @@ def llm_judge(llm, kind: str, question: str, answer: str, evidence_texts: Sequen
     """LLM-as-judge score (labelled as such in reports). Returns None if the judge could not score."""
     prompt = f"Question: {question}\n\nEvidence:\n" + "\n---\n".join(evidence_texts) + f"\n\nAnswer:\n{answer}"
     try:
-        result = llm.structured(JudgeScore, prompt, JUDGE_SYSTEM[kind], budget=Budget(max_llm_calls=2, max_tool_calls=0, max_seconds=30), name=f"eval.judge_{kind}")
+        result = llm.structured(JudgeScore, prompt, JUDGE_SYSTEM[kind], budget=Budget(max_llm_calls=2, max_tool_calls=0, max_seconds=60), name=f"eval.judge_{kind}")
     except Exception:  # noqa: BLE001
         return None
     return result.score if result else None

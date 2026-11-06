@@ -9,6 +9,7 @@ persistence, and what the browser may see.
 from typing import Any, Dict, List, Optional
 
 from backend import config
+from backend.agents.common import UNTRUSTED_EXCERPTS
 from backend.agents.schemas import QuizQuestion
 from backend.budget import Budget, BudgetExceeded
 from backend.services import quiz_service
@@ -16,9 +17,18 @@ from backend.services.learner_state_service import LearnerStateService
 from backend.services.llm_service import LLM
 from backend.services.retrieval_service import Scope
 from backend.tools.base import ToolContext, ToolRegistry
-from backend.domain.quiz_engine import build_quiz_prompt
+from backend.domain.quiz_engine import PHASE_GUIDANCE, QUIZ_JSON_INSTRUCTION, build_quiz_prompt
+from backend.guardrails.leak import protect
 
-QUIZ_SYSTEM = "You are a quiz generation engine for a document-grounded tutor. Produce exactly one multiple-choice question."
+QUIZ_SYSTEM = (
+    "You are a quiz generation engine for a document-grounded tutor. Produce exactly one multiple-choice question. "
+    + UNTRUSTED_EXCERPTS
+)
+
+QUIZ_SOURCE_QUOTE_INSTRUCTION = (
+    "Also include `source_quote`: a short verbatim quote (at least 15 characters) copied exactly from "
+    "the excerpts above that supports the correct answer. The four options must be distinct."
+)
 
 QUIZ_TOOLS = ["sample_document_excerpts", "get_quiz_history"]
 
@@ -43,10 +53,7 @@ class QuizAgent:
                 break
             excerpts = [c["text"] for c in sample.chunks]
             prompt = build_quiz_prompt(state.current_phase, "\n\n".join(excerpts), state.get_weak_topics(), state.asked_questions)
-            prompt += (
-                "\n\nAlso include `source_quote`: a short verbatim quote (at least 15 characters) copied exactly from "
-                "the excerpts above that supports the correct answer. The four options must be distinct."
-            )
+            prompt += "\n\n" + QUIZ_SOURCE_QUOTE_INSTRUCTION
             if rejected:
                 prompt += f"\n\nYour previous attempt was rejected: {rejected}. Write a different question."
             try:
@@ -139,3 +146,8 @@ class QuizAgent:
                 },
                 "event": event,
             }
+
+
+# The leak check compares answers with these real prompts, so it cannot drift from them.
+protect(QUIZ_SYSTEM, QUIZ_SOURCE_QUOTE_INSTRUCTION, *PHASE_GUIDANCE.values())
+protect(QUIZ_JSON_INSTRUCTION, rules=False)

@@ -54,33 +54,3 @@ def split_verified(retrieval: RetrievalService, scope: Scope, items: List[Dict[s
         result = verify_item(retrieval, scope, item)
         (verified if result["verified"] else rejected).append({**item, "verification": result})
     return verified, rejected
-
-
-def upload_to_langsmith(client, name: str, items: List[Dict[str, Any]], description: Optional[str] = None) -> str:
-    """Idempotently creates a LangSmith dataset holding the VERIFIED examples only. Returns the dataset name."""
-    try:
-        dataset = client.read_dataset(dataset_name=name)
-    except Exception:  # noqa: BLE001 - not found
-        dataset = client.create_dataset(name, description=description or "Verified golden Q&A for the AI Tutor Guide RAG pipeline")
-    existing = {(e.metadata or {}).get("golden_id") for e in client.list_examples(dataset_id=dataset.id)}
-    new = [i for i in items if i["id"] not in existing]
-    if new:
-        client.create_examples(
-            dataset_id=dataset.id,
-            inputs=[{"question": i["question"], "source_document": i["source_document"]} for i in new],
-            outputs=[
-                {
-                    "reference_answer": i["reference_answer"],
-                    "expected_keywords": i.get("expected_keywords", []),
-                    "source_chunk": i["source_chunk"],
-                    "source_page": i.get("source_page"),
-                }
-                for i in new
-            ],
-            metadata=[
-                {"golden_id": i["id"], "topic": i.get("topic"), "difficulty": i.get("difficulty"), "source_document": i["source_document"],
-                 "source_page": i.get("source_page"), "source_chunk": i["source_chunk"]}
-                for i in new
-            ],
-        )
-    return name

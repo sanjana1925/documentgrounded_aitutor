@@ -9,13 +9,13 @@ injected text in a message cannot be laundered into persistent context.
 import logging
 from typing import Any, Dict
 
-from langsmith import traceable
 
 from backend import config
 from backend.budget import Budget, BudgetExceeded
 from backend.guardrails.input import validate_input
 from backend.services.chat_history_service import ChatHistoryService
 from backend.services.llm_service import LLM, LLMError
+from backend.guardrails.leak import protect
 
 logger = logging.getLogger("tutor.memory")
 
@@ -35,7 +35,6 @@ class ConversationSummarizer:
         self.chat = chat
 
     def refresh(self, chat_session_id: str) -> Dict[str, Any]:
-        @traceable(name="conversation_memory", run_type="chain", tags=["memory"])
         def run() -> Dict[str, Any]:
             older = self.chat.messages_needing_summary(chat_session_id)
             if len(older) < config.SUMMARY_TRIGGER_MESSAGES:
@@ -57,3 +56,7 @@ class ConversationSummarizer:
         except Exception:  # noqa: BLE001 - memory maintenance must never surface as an error
             logger.exception("conversation summary refresh failed")
             return {"status": "error"}
+
+
+# The leak check compares answers with these real prompts, so it cannot drift from them.
+protect(SUMMARY_SYSTEM)

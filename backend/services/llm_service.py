@@ -2,8 +2,7 @@
 The single place that talks to Gemini.
 
 Agents depend on the small `LLM` protocol (text / structured), so tests can inject a scripted
-fake. Every call is charged against the request Budget and appears in LangSmith as an `llm` run
-carrying provider, model and - only when Gemini actually returns them - token counts.
+fake. Every call is charged against the request Budget.
 """
 import logging
 import time
@@ -12,13 +11,13 @@ from typing import Any, Dict, Optional, Protocol, Type, TypeVar
 import httpx
 from google.genai import errors as genai_errors
 from google.genai import types
-from langsmith import traceable
 from pydantic import BaseModel, ValidationError
 
 from backend.budget import Budget, BudgetExceeded
 
 T = TypeVar("T", bound=BaseModel)
 logger = logging.getLogger("tutor.llm")
+MIN_REQUEST_SECONDS = 10.0
 
 
 class LLMError(Exception):
@@ -36,11 +35,6 @@ class LLM(Protocol):
     def structured(self, schema: Type[T], prompt: str, system: str, *, budget: Budget, name: str) -> Optional[T]: ...
 
 
-def _drop_client(inputs: Dict[str, Any]) -> Dict[str, Any]:
-    return {k: v for k, v in inputs.items() if k not in {"client"}}
-
-
-@traceable(run_type="llm", process_inputs=_drop_client)
 def _generate(client, model: str, prompt: str, system: str, schema_name: str, response_schema, timeout_s: float):
     config_kwargs: Dict[str, Any] = {
         "system_instruction": system,
@@ -74,7 +68,9 @@ class GeminiLLM:
         max_attempts = 4
         for attempt in range(1, max_attempts + 1):
             remaining = budget.remaining_seconds()
-            if remaining <= 1.0:
+            # Gemini rejects a request deadline under 10 s (HTTP 400), so a call that cannot get that long is a
+            # time-budget stop, not a model failure.
+            if remaining <= MIN_REQUEST_SECONDS:
                 raise BudgetExceeded("time_budget_exceeded")
             try:
                 out = _generate(
@@ -85,10 +81,6 @@ class GeminiLLM:
                     name,
                     response_schema,
                     min(remaining, 30.0),
-                    langsmith_extra={
-                        "name": name,
-                        "metadata": {"ls_provider": "google_genai", "ls_model_name": self.model},
-                    },
                 )
                 return out["text"]
             except (httpx.TransportError, TimeoutError) as exc:

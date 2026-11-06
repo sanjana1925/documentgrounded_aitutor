@@ -13,19 +13,17 @@ from typing import Dict, List, Optional, Tuple
 
 from langchain_core.runnables import RunnableConfig
 from langgraph.graph import END, StateGraph
-from langsmith import traceable
 
 from backend import config as cfg
 from backend.agents.critic import CriticAgent
 from backend.agents.guide import GuideAgent
 from backend.agents.quiz import QuizAgent
 from backend.agents.retrieval import EvidenceEvaluator, RetrievalAgent
-from backend.agents.supervisor import _MODE_TO_INTENT, SupervisorAgent
+from backend.agents.supervisor import SupervisorAgent
 from backend.agents.tutor import TutorAgent
 from backend.budget import Budget
-from backend.graph.nodes import WORKFLOW_OF_INTENT, build_nodes
+from backend.graph.nodes import build_nodes
 from backend.graph.state import Deps, GraphState
-from backend.observability.langsmith import mark_root, request_metadata
 from backend.services.learner_state_service import LearnerStateService
 from backend.services.llm_service import LLM
 from backend.services.retrieval_service import RetrievalService
@@ -157,14 +155,7 @@ def run_request(
     budget: Optional[Budget] = None,
 ) -> Tuple[GraphState, Budget]:
     budget = budget or Budget()
-    tags = ["ai-tutor-guide"]
-    if mode_override:
-        tags.append(f"workflow:{WORKFLOW_OF_INTENT[_MODE_TO_INTENT[mode_override]]}")
-    metadata = request_metadata(session_id, document_id, mode_override=mode_override or "auto")
     run_config = {
-        "run_name": "agent_workflow",
-        "tags": tags,
-        "metadata": metadata,
         "recursion_limit": cfg.GRAPH_RECURSION_LIMIT,
         "configurable": {"budget": budget},
     }
@@ -181,10 +172,5 @@ def run_request(
         "generation_attempts": 0,
         "trace": [],
     }
-    @traceable(name="agent_request", run_type="chain")
-    def agent_request():
-        mark_root()  # lets the Supervisor tag this root run with the intent it decides
-        return graph.invoke(initial, config=run_config)
-
-    final = agent_request(langsmith_extra={"tags": tags, "metadata": metadata})
+    final = graph.invoke(initial, config=run_config)
     return final, budget
