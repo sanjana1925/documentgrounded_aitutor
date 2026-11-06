@@ -37,7 +37,7 @@ Never use an LLM for quiz scoring, security decisions, isolation filters, counte
 
 3. TOOL RULES
 
-1. Every tool has typed input (extra fields forbidden), typed output, validation, error handling, budget accounting, and a LangSmith run named after the tool.
+1. Every tool has typed input (extra fields forbidden), typed output, validation, error handling, and budget accounting.
 2. The model never supplies session_id or document_id. Scope comes from ToolContext, built by Python.
 3. Each agent has an allow-list (registry.subset([...])). An agent cannot call a tool that is not on its list.
 4. Tools return errors as results, never raise into the workflow.
@@ -61,9 +61,9 @@ Never use an LLM for quiz scoring, security decisions, isolation filters, counte
 
 5. SECRETS AND PRIVACY RULES
 
-1. Keys and passwords live only in .env (git-ignored). .env.example holds placeholders only. Never paste real keys into code, docs, tests, commits, chat, or LangSmith metadata.
+1. Keys and passwords live only in .env (git-ignored). .env.example holds placeholders only. Never paste real keys into code, docs, tests, commits, or chat.
 2. If a key touches a shareable file, rotate it.
-3. LangSmith metadata is filtered for key-like names and truncated. The raw session id is never sent, a hash is.
+3. Nothing is sent to an outside tracing service. Logs carry reason codes, never the text of questions, answers or documents.
 4. Delete means delete. Removing a document removes its chunks, quiz progress, and chat history.
 5. Session ids are credentials here. Do not print them in docs or logs meant for sharing.
 6. Do not write real passwords into documentation. Refer to the variable name (BENCHMARK_PASSWORD) instead.
@@ -109,8 +109,8 @@ Compatibility
 
 9. EVALUATION AND OBSERVABILITY RULES
 
-1. Every request is traced with meaningful names, tags, and metadata. Tracing must never break a request.
-2. Use annotate(...) and annotate_root(...). Do not hand-roll trace logic in agents.
+1. Every request records its steps in the state's `trace` list, returned as `agent_trace`. Recording must never break a request.
+2. Add events to `trace`; do not invent a second logging path inside agents.
 3. Report token counts only when the provider returns them. Never estimate tokens or cost.
 4. Evaluation runs must pace requests for the free-tier limit (15 per minute) and use retries with backoff.
 5. New metrics need a definition in metric_notes and a "not evaluated" path.

@@ -16,7 +16,7 @@ AI Tutor Guide lets a learner upload a study PDF and then:
 * take an adaptive quiz that moves from Simple to Medium to High
 * see a dashboard built from real quiz results
 
-The difference is trust. Answers are grounded and cited, refusals are honest, quiz scoring is exact, limits are enforced, and every decision can be inspected in LangSmith.
+The difference is trust. Answers are grounded and cited, refusals are honest, quiz scoring is exact, limits are enforced, and every decision can be inspected in the `agent_trace` returned with each answer.
 
 > Agents decide what to do. Deterministic code enforces what must never go wrong.
 
@@ -42,7 +42,7 @@ Goals
 2. Adaptive practice: 15-question Simple phase (70% to advance), then Medium (checked every 5, 70%), then High. Weak-topic targeting and no repeated questions.
 3. Honest analytics: the dashboard uses only recorded performance. The AI may not invent numbers.
 4. Bounded and safe: 12 model calls, 6 tool calls, 3 searches, 2 revisions, 45 seconds per request. Session and document isolation. Input, evidence, and output guardrails.
-5. Explainable and measurable: LangSmith traces, a verified golden dataset, and baseline vs agentic evaluation where unrun metrics read "Not evaluated yet".
+5. Explainable and measurable: a per-request `agent_trace`, a verified golden dataset, and baseline vs agentic evaluation where unrun metrics read "Not evaluated yet".
 6. Cheap context: the model sees the last 6 messages plus a rolling summary, never the full history.
 
 Non-goals (this release)
@@ -98,11 +98,11 @@ Non-goals (this release)
 
 * Attacks are blocked. Criteria: empty, oversized, or malformed input, prompt injection, and prompt extraction return guardrail_blocked with no model call.
 * Nothing runs away. Criteria: every loop-back consumes a bounded counter and time is checked at every step.
-* I can inspect any request. Criteria: a LangSmith trace with named agents, tool calls, evidence, critic verdict, tags, and metadata. No secrets and no raw session id.
+* I can inspect any request. Criteria: an `agent_trace` in the response with named agent steps, tool calls, evidence, critic verdict, budget used and stop reason. No secrets in it.
 
 5.6 Evaluation
 
-* I can measure quality honestly. Criteria: only verified examples are scored, provider errors are retried then excluded, unrun metrics are "Not evaluated yet", both arms use the same questions, and LangSmith datasets and experiments can be created.
+* I can measure quality honestly. Criteria: only verified examples are scored, provider errors are retried then excluded, unrun metrics are "Not evaluated yet" and both arms use the same questions.
 
 ---
 
@@ -112,7 +112,7 @@ Non-goals (this release)
 |---|---|
 | Intents | qa, summary, key_points, eli5, glossary, quiz, other |
 | Agents | Supervisor, Retrieval Agent, Evidence Evaluator, Tutor, Critic, Quiz Agent, Guide Agent, plus a conversation memory step |
-| Storage | ChromaDB (chunks), SQLite (chat), JSON files (quiz progress), LangSmith (traces) |
+| Storage | ChromaDB (chunks), SQLite (chat), JSON files (quiz progress) |
 | API | /, /upload, /documents/{filename}, /agent, /dashboard, /evaluation, /quiz/reset, /chat/history |
 | UI | Dashboard, AI Tutor, Adaptive Quiz, Evaluation (React and Tailwind) |
 
@@ -169,7 +169,7 @@ Reading: the agentic design gave closer, better-grounded answers and rescued one
 | Session id is the credential | Data exposure if leaked | Documented, hashed in traces, add real auth before a public launch |
 | Judge and generator share a model family | Optimistic quality scores | Report with a caveat, add an independent judge |
 | Small AI-drafted golden set | Weak evidence for claims | Human review, grow to several documents |
-| Secret hygiene (a LangSmith key once sat in .env.example) | Key exposure | Moved to .env. Rotate the key (see Tasks.md) |
+| Secret hygiene (a LangSmith key once sat in .env.example) | Key exposure | Moved to .env. LangSmith is no longer used: revoke that key (see Tasks.md) |
 | Weak benchmark password | Benchmark data exposed | Use a longer password, add rate limiting before deployment |
 
 ---
@@ -182,11 +182,10 @@ Reading: the agentic design gave closer, better-grounded answers and rescued one
 | Agentic backend (supervisor, retrieval loop, critic, quiz, guide) | Done |
 | Guardrails, budgets, isolation | Done |
 | Chat history and rolling summary (SQLite) | Done |
-| LangSmith tracing | Done |
+| Per-request agent_trace in the API response | Done |
 | Verified golden set and baseline vs agentic evaluation | Done (n=10) |
 | Markdown rendering in chat | Done |
 | Password-protected System Benchmark | Done |
-| LangSmith experiments, clean re-run | Partial: baseline done, agentic pending |
 | Full-app audit, authentication, larger eval set, evaluator tuning | Backlog (see Tasks.md) |
 
 ---

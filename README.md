@@ -24,7 +24,7 @@
 
 ### 🛡️ Guardrails
 
-Input validation · Prompt-injection checks · Evidence validation · Output grounding · Citation checks · Workflow limits
+Input validation · Prompt-injection checks (structure, grammar and meaning, in several languages, also on uploaded documents; see [project-docs/Guardrails.md](project-docs/Guardrails.md)) · Evidence validation · Output grounding · Citation checks · Workflow limits
 
 <br>
 
@@ -34,15 +34,19 @@ Measured offline with `python evaluate.py`; see [project-docs/Evaluation.md](pro
 
 | Metric | Baseline RAG | Agentic RAG |
 |---|---:|---:|
-| Recall@4 | 0.90 | 0.90 |
-| Answer Similarity | 0.847 | 0.922 |
-| Groundedness | 0.486 | 0.837 |
-| Faithfulness | 1.00 | 0.98 |
+| Recall@4 | 1.00 | 1.00 |
+| Answer Similarity | 0.752 | 0.777 |
+| Groundedness | 0.575 | 0.650 |
+| Faithfulness | 1.00 | 0.955 |
+| Model calls per question | 1.0 | 4.4 |
+| Median time per question | 1.5 s | 7.2 s |
+
+*Measured on 2026-11-06 with 21 questions drafted from one 7-page PDF and checked against it. Answers by `gemini-flash-lite-latest`; faithfulness judged by `gemini-3.5-flash-lite`. It is a small sample, so differences of a few hundredths are noise. Recall is 1.00 for both because every question was written from a single passage. Details and limits: [project-docs/Evaluation.md](project-docs/Evaluation.md).*
 
 <br>
 
 ### 🔍 Observability
-**LangSmith** traces agent decisions, retrieval, revisions, latency, and model calls.
+Every answer returns an `agent_trace`: each agent step and decision, the tools used, how many model calls and seconds were spent, and why a request stopped. Nothing is sent to an outside tracing service.
 
 <br>
 
@@ -71,4 +75,4 @@ Documents, chat history and quiz progress are stored locally in `data/`, which i
 <br>
 
 ### 🛠️ Tech Stack
-`FastAPI` · `LangGraph` · `Gemini` · `ChromaDB` · `SQLite` · `LangSmith` · `React` · `Vite` · `Tailwind`
+`FastAPI` · `LangGraph` · `Gemini` · `ChromaDB` · `SQLite` · `React` · `Vite` · `Tailwind`

@@ -26,7 +26,6 @@ FastAPI backend (:8000)
    ├→ ChromaDB         chunks, embeddings, metadata     (./data/chroma_db)
    ├→ SQLite           chat sessions, messages, sources (./data/tutor.db)
    ├→ JSON files       quiz progress per learner and document (./data/learner_states)
-   ├→ LangSmith        traces, datasets, experiments (cloud)
    └→ MiniLM           local embeddings (sentence-transformers)
 ```
 
@@ -41,7 +40,7 @@ guardrails and observability are used everywhere and never raise
 
 | Layer | Path | Responsibility |
 |---|---|---|
-| Entry | app.py, backend/main.py | Create the FastAPI app, CORS, routers, tracing setup, legacy re-exports |
+| Entry | app.py, backend/main.py | Create the FastAPI app, CORS, routers, load .env, legacy re-exports |
 | API | backend/api/ | Routes, request and response schemas, API-key and benchmark-password checks |
 | Composition | backend/container.py | Build real services once (Chroma, Gemini, SQLite, graph) |
 | Workflow | backend/graph/ | LangGraph state, thin nodes, routing and loop limits |
@@ -49,7 +48,7 @@ guardrails and observability are used everywhere and never raise
 | Tools | backend/tools/ | Typed, allow-listed, budgeted, traced actions |
 | Services | backend/services/ | Deterministic workers with no agent logic |
 | Guardrails | backend/guardrails/ | Input, retrieval, and output checks (pure functions) |
-| Evaluation | backend/evaluation/, services/evaluation_service.py | Dataset verification, metrics, experiments |
+| Evaluation | backend/evaluation/, services/evaluation_service.py | Dataset verification, metrics |
 | Domain rules | backend/domain/quiz_engine.py | Phase progression, accuracy, weak topics |
 
 Rules:
@@ -148,7 +147,7 @@ GRAPH STATE (graph/state.py)
 | Guide Agent | agents/guide.py | guide_agent.summarize, map, reduce | text | Single pass vs parallel map-reduce, length validation, retry once |
 | Memory | agents/memory.py | conversation_memory.summarize | text | Background, at most 1 call, discards injection-like summaries |
 
-All calls go through services/llm_service.py (GeminiLLM): structured output via Gemini response_schema, one repair retry on invalid JSON, retry on transport, 5xx, and 429 within the time budget, LLMError(status) when unrecoverable, and token counts attached to the LangSmith run only when Gemini returns them.
+All calls go through services/llm_service.py (GeminiLLM): structured output via Gemini response_schema, one repair retry on invalid JSON, retry on transport, 5xx, and 429 within the time budget, and LLMError(status) when unrecoverable.
 
 ---
 
@@ -226,13 +225,13 @@ The quiz reply markdown format is parsed by the frontend (lib/parseQuiz.js) and 
 
 ---
 
-11. OBSERVABILITY (LangSmith)
+11. OBSERVABILITY (agent_trace)
 
-* Root run agent_request, then agent_workflow, then nodes named after agents, then <agent>.<step> LLM runs and named tool runs. Routing functions appear as route_after_* runs.
-* Tags: ai-tutor-guide, workflow:{qa, guide-mode, quiz, other}, intent:*, rag, retrieval, revision, quiz, memory, fallback, error, budget-exceeded, llm-error, critic-unavailable.
-* Metadata: hashed session_id, document_id, workflow_type, intent, decision_source, retrieval_attempt, revision_attempt, evidence_coverage, evidence_action, critic_action, quiz_phase, difficulty, stop_reason. Sensitive-looking keys are stripped and values truncated to 200 characters.
-* configure_tracing() maps legacy LANGCHAIN_* names, defaults the project to ai-tutor-guide, and disables tracing with a warning if no key is set. TUTOR_DISABLE_TRACING=1 forces it off (tests).
-* The request root is an explicit @traceable whose handle is stored in a ContextVar, so the Supervisor can add intent and workflow tags after deciding.
+* There is no external tracing service. Every `POST /agent` response carries `agent_trace`: `events` (one entry per agent step, in order: supervisor decision and source, each retrieval attempt with strategy and chunks returned, evidence evaluator verdict, tutor action, critic verdict, guardrail result, fallback reason), `budget` (model calls, tool calls, searches, revisions and seconds used, and the limits) and `stop_reason`.
+* The same events drive the evaluation metrics (`evaluation/evaluators.py`), so what a developer reads in a response is what the benchmark counts.
+* Failures stay visible: a stopped or degraded step is recorded in `events` with its reason, never swallowed.
+* Server logs (`logging`) hold provider errors and retries. Reason codes only: question and answer text are never logged by the guardrails.
+* `config.disable_third_party_tracing()` removes the usual hosted-tracing environment variables, so LangGraph and LangChain cannot send anything out on their own even if such variables are left in `.env`.
 
 ---
 
@@ -247,10 +246,10 @@ EvaluationService runs baseline_rag (1 search, 1 call) and agentic_rag (full gra
    ↓
 evaluators (recall, precision, keyword coverage, similarity, lexical groundedness, LLM-judge faithfulness and relevancy, workflow counters)
    ↓
-aggregate, compare, build_report → save_report and/or LangSmith (upload_to_langsmith, run_experiments)
+aggregate, compare, build_report → save_report
 ```
 
-Provider failures and time-budget stops are retried, then marked errored and excluded. LangSmith evaluators return None ("not evaluated") for errored runs.
+Provider failures and time-budget stops are retried, then marked errored and excluded.
 
 ---
 
@@ -260,7 +259,6 @@ Provider failures and time-budget stops are retried, then marked errored and exc
 |---|---|---|
 | GEMINI_API_KEY, API_KEY | .env | required, empty |
 | BENCHMARK_PASSWORD | .env | empty (benchmark locked) |
-| LANGSMITH_TRACING, LANGSMITH_API_KEY, LANGSMITH_PROJECT | .env | off, none, ai-tutor-guide |
 | ANSWER_MODEL | env | gemini-flash-lite-latest |
 | TUTOR_DB_PATH | env | ./data/tutor.db |
 | Limits (MAX_*, chunk sizes, thresholds) | backend/config.py | see section 5 |
@@ -272,7 +270,7 @@ Provider failures and time-budget stops are retried, then marked errored and exc
 
 | Decision | Why | Trade-off |
 |---|---|---|
-| LangGraph for the workflow | Real loops and branches, and each node is a named LangSmith run | Extra dependency |
+| LangGraph for the workflow | Real loops and branches, and each node is a named, inspectable step | Extra dependency |
 | Routing in Python, not by the LLM | Bounded, testable, auditable | Less autonomy by design |
 | Pydantic and Gemini response_schema | No free-text parsing | Schema must stay Gemini-compatible |
 | SQLite for chat | No setup, transactional, portable | Single node. Swap to Postgres later |

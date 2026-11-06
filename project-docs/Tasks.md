@@ -11,11 +11,9 @@ Related: [PRD](PRD.md) · [Architecture](Architecture.md) · [Rules](Rules.md) �
 
 | # | Task | Status | Notes |
 |---|---|---|---|
-| P0-1 | Rotate the LangSmith API key | ⬜ | It once sat in .env.example, a shareable file. Create a new key, put it only in .env, delete the old one |
+| P0-1 | Revoke the LangSmith API key | ⬜ | LangSmith is no longer used, but the key once sat in .env.example, a shareable file. Revoke it in LangSmith and delete it from .env |
 | P0-2 | Finish the full-app audit | 🟡 | Non-AI parts done 2026-09-20 (see findings in F-8 to F-12 and S-7 to S-8). Still to run once the Gemini daily quota resets: real answers, follow-ups, off-topic and injection questions, quick actions, the quiz flow, and the pages with real quiz data |
 | P0-3 | Verify markdown rendering in the browser | ✅ | Bold, italic, nested and numbered lists render correctly, and raw HTML and javascript: links are not rendered |
-| P0-4 | Finish the clean LangSmith experiments | 🟡 | v2 baseline done (tutor-eval-v2-baseline_rag-ed255f28, 10 runs, 0 errors). v2 agentic was never created. Run: python evaluate.py --dataset data/golden_dataset_chem.json --session <session_id> --document chem.pdf --arm agentic --judge --langsmith-only --pause 10 --retries 3 --backoff 25 --prefix tutor-eval-v2 (about 25 minutes at 15 requests per minute) |
-| P0-5 | Add the LangSmith experiment results to 09-evaluation.md | ⬜ | Only use numbers from the clean v2 pair |
 
 ---
 
@@ -59,7 +57,6 @@ Related: [PRD](PRD.md) · [Architecture](Architecture.md) · [Rules](Rules.md) �
 | S-2 | Rate limiting and lockout, including wrong benchmark password attempts | ⬜ | Also protect /agent and /upload |
 | S-3 | CORS origins from the environment | ⬜ | Hard-coded localhost:5173 today |
 | S-4 | Postgres option for chat and learner data, plus a deployment guide | ⬜ | Chroma files and SQLite are single-node |
-| S-5 | Clean up old LangSmith experiments from aborted runs | ⬜ | tutor-eval-*-729dd1ac, -0142f1ec, -c4b4cc46, -87896683, -20673c2b contain errored or partial runs |
 | S-7 | Fail fast on the Gemini per-day quota error | ⬜ | A per-day 429 is retried for about 32 seconds before failing. Detect GenerateRequestsPerDay and return "daily free limit reached, try tomorrow" immediately |
 | S-8 | Delete the leftover fixtest/_smoke2.pdf chunk in data/chroma_db | ⬜ | Left by an early smoke test |
 | S-6 | Health and readiness endpoint reporting model and database status | ⬜ | |
@@ -103,10 +100,9 @@ Backend architecture
 
 Observability and evaluation
 
-* ✅ LangSmith: named runs, tags, metadata, hashed session id, real token counts when provided
+* ✅ agent_trace returned with every answer: steps, decisions, budget used, stop reason
 * ✅ Verified golden-set builder and the chem.pdf set (10 of 10 verified, 4/3/3 difficulty)
 * ✅ Baseline vs agentic evaluation with LLM-judge metrics, errored rows excluded, retries, report schema v2
-* ✅ LangSmith dataset upload and experiment runner
 * ✅ Live smoke tests (found and fixed follow-up misrouting)
 
 Quality, docs, hygiene
@@ -127,7 +123,6 @@ Quality, docs, hygiene
 |---|---|---|
 | Agentic over-refusal on debatable questions (1/10) | Occasional "couldn't find..." for answerable questions | P1-1 |
 | Free-tier rate limit | Slow answers and long evaluations | P1-6. Pacing and backoff already in place |
-| Old LangSmith experiments contain errored runs scored as zeros | Misleading if compared | Ignore, S-5, use the clean v2 pair |
 | Legacy chem.pdf index has no page numbers | Sources show chunk ids only | P1-4 |
 | No authentication | The session id is the credential | S-1 |
 | Benchmark password has no lockout | Guessable if exposed | S-2 |
